@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Domains Manager - <%= config.siteName %></title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    body { background-color: #0b1329; color: #f8fafc; font-family: system-ui, -apple-system, sans-serif; }
+    .card-box { background-color: #111a33; border: 1px solid #1e2942; }
+    .input-field { background-color: #0b1329; border: 1px solid #243252; color: #f8fafc; }
+  </style>
+</head>
+<body class="min-h-screen flex text-slate-100">
+
+  <!-- SIDEBAR -->
+  <%- include('partials/sidebar') %>
+
+  <!-- MAIN WRAPPER -->
+  <div class="flex-1 flex flex-col min-w-0 bg-[#090e1d]">
+    
+    <!-- TOPBAR -->
+    <%- include('partials/topbar') %>
+
+    <!-- CONTENT -->
+    <main class="p-6 md:p-10 flex-1 max-w-5xl mx-auto w-full">
+
+      <div class="flex items-center justify-between mb-8">
+        <div>
+          <h1 class="text-3xl font-extrabold text-white tracking-tight">Domain Management</h1>
+          <p class="text-xs text-slate-400 mt-1">Kelola daftar domain & subdomain yang muncul di dropdown pilihan Create Link.</p>
+        </div>
+      </div>
+
+      <!-- ADD DOMAIN CARD -->
+      <div class="card-box rounded-2xl p-6 shadow-2xl mb-8">
+        <h3 class="text-sm font-bold text-white mb-3">Tambah Domain Baru</h3>
+        <form onsubmit="handleAddDomain(event)" class="flex gap-3">
+          <input type="text" id="newDomainInput" placeholder="contoh: cdn3.slicedrve.in" class="flex-1 input-field px-4 py-2.5 rounded-xl text-sm" required>
+          <button type="submit" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl transition shadow-md">
+            + Tambah Domain
+          </button>
+        </form>
+      </div>
+
+      <!-- DOMAINS LIST TABLE -->
+      <div class="card-box rounded-2xl p-6 shadow-2xl">
+        <h3 class="text-sm font-bold text-white mb-4">Daftar Domain Aktif (<%= config.domains.length %> Domain)</h3>
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+          <% config.domains.forEach(function(dom) { %>
+            <div class="p-3 bg-[#080d1a] rounded-xl border border-slate-800 flex items-center justify-between">
+              <span class="font-mono text-xs text-blue-400 font-semibold"><%= dom %></span>
+              <button onclick="deleteDomain('<%= dom %>')" class="text-rose-400 hover:text-rose-300 text-xs px-2 py-1">
+                <i class="fa-solid fa-trash-can"></i>
+              </button>
+            </div>
+          <% }); %>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <script>
+    async function handleAddDomain(e) {
+      e.preventDefault();
+      const domain = document.getElementById('newDomainInput').value;
+      await fetch('/api/domains', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ domain })
+      });
+      location.reload();
+    }
+    async function deleteDomain(dom) {
+      if (!confirm('Hapus domain ' + dom + '?')) return;
+      await fetch('/api/domains/' + encodeURIComponent(dom), { method: 'DELETE' });
+      location.reload();
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Watch Video / Unlock File Link</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    body {
+      background-color: #0b0f19;
+      color: #f1f5f9;
+      font-family: system-ui, -apple-system, sans-serif;
+    }
+    .video-card {
+      background-color: #151d2a;
+      border: 1px solid #232f45;
+    }
+  </style>
+
+  <!-- POPUNDER AD SCRIPT PLACEHOLDER -->
+  <%- config.ads.popunderScript || '' %>
+</head>
+<body class="min-h-screen flex flex-col justify-between p-3 md:p-6">
+
+  <!-- TOP BRANDING HEADER -->
+  <header class="max-w-3xl mx-auto w-full text-center py-3 border-b border-slate-800 mb-4">
+    <h1 class="text-lg font-extrabold text-blue-400 tracking-wide flex items-center justify-center gap-2">
+      <i class="fa-solid fa-play-circle text-blue-500"></i> <%= config.siteName || 'Media Player Portal' %>
+    </h1>
+  </header>
+
+  <main class="max-w-3xl mx-auto w-full flex-1 flex flex-col items-center">
+    
+    <!-- TOP BANNER AD SLOT -->
+    <div class="w-full mb-5 overflow-hidden flex justify-center">
+      <%- config.ads.topBanner %>
+    </div>
+
+    <!-- MAIN SAFELINK / VIDEO CARD -->
+    <div class="video-card w-full rounded-2xl p-4 md:p-6 shadow-2xl mb-6">
+      
+      <% if (isVideo) { %>
+        <!-- HTML5 VIDEO PLAYER (AUTOPLAY OFF FOR ADS) -->
+        <div class="relative w-full aspect-video bg-black rounded-xl overflow-hidden mb-5 border border-slate-800 shadow-inner flex items-center justify-center">
+          <video id="mainVideo" controls preload="metadata" class="w-full h-full object-contain">
+            <source src="<%= link.originalUrl %>" type="video/mp4">
+            Browser Anda tidak mendukung pemutar video HTML5.
+          </video>
+        </div>
+      <% } %>
+
+      <!-- COUNTDOWN & UNLOCK BUTTON AREA -->
+      <div id="countdownBox" class="text-center py-6 px-4 bg-slate-900/90 rounded-xl border border-slate-800 my-2">
+        
+        <div id="timerContainer">
+          <div class="inline-flex items-center justify-center w-14 h-14 rounded-full bg-blue-600/10 border border-blue-500/30 text-blue-400 text-2xl font-black mb-3">
+            <span id="timerCount"><%= timerSeconds %></span>
+          </div>
+          <p class="text-sm font-semibold text-slate-200">Harap Tunggu Pemutar Media Sedang Disiapkan...</p>
+          <p class="text-xs text-slate-400 mt-1">Video akan dapat dibuka setelah timer selesai.</p>
+        </div>
+
+        <!-- UNLOCK BUTTON (HIDDEN AT START) -->
+        <div id="unlockedContainer" class="hidden">
+          <a href="/go/<%= link.id %>" target="_blank" class="inline-flex items-center gap-2 px-8 py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-base rounded-xl shadow-lg shadow-emerald-600/30 transition transform hover:-translate-y-0.5">
+            <i class="fa-solid fa-circle-play text-xl"></i> PUTAR / BUKA LINK SEKARANG
+          </a>
+          <p class="text-xs text-slate-400 mt-2">Klik tombol di atas untuk menuju link utama.</p>
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- BOTTOM BANNER AD SLOT -->
+    <div class="w-full mb-6 overflow-hidden flex justify-center">
+      <%- config.ads.bottomBanner %>
+    </div>
+
+  </main>
+
+  <footer class="max-w-3xl mx-auto w-full text-center py-4 border-t border-slate-800/60 text-xs text-slate-500">
+    &copy; <%= new Date().getFullYear() %> <%= config.siteName %>. All rights reserved.
+  </footer>
+
+  <script>
+    let timeLeft = parseInt("<%= timerSeconds %>", 10) || 5;
+    const timerCountEl = document.getElementById('timerCount');
+    const timerContainer = document.getElementById('timerContainer');
+    const unlockedContainer = document.getElementById('unlockedContainer');
+
+    const countdownInterval = setInterval(() => {
+      timeLeft--;
+      if (timerCountEl) timerCountEl.innerText = timeLeft;
+
+      if (timeLeft <= 0) {
+        clearInterval(countdownInterval);
+        timerContainer.classList.add('hidden');
+        unlockedContainer.classList.remove('hidden');
+      }
+    }, 1000);
+  </script>
+</body>
+</html>

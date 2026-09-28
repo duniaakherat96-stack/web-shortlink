@@ -1,0 +1,26 @@
+{
+  "siteName": "My Shortlink Engine",
+  "timerSeconds": 5,
+  "domains": [
+    "cdn2.slicedrve.in",
+    "shorturl.lt",
+    "videy.at",
+    "videy.my",
+    "vdey.in",
+    "aceimg.in",
+    "slicedrve.in",
+    "shortn.icu",
+    "funhun.site",
+    "cdn.videy.at",
+    "cdn.videy.my",
+    "cdn.vdey.in",
+    "cdn.aceimg.in",
+    "cdn.slicedrve.in",
+    "cdn2.videy.at"
+  ],
+  "ads": {
+    "topBanner": "<div style='padding:15px; background:#1e293b; color:#94a3b8; border-radius:8px; font-size:13px; text-align:center;'>[ SLOT IKLAN BANNER ATAS (728x90) - Tempel Kode Adsterra/Monetag Anda Di sini ]</div>",
+    "bottomBanner": "<div style='padding:15px; background:#1e293b; color:#94a3b8; border-radius:8px; font-size:13px; text-align:center;'>[ SLOT IKLAN BANNER BAHAW (300x250) - Tempel Kode Adsterra/Monetag Anda Di sini ]</div>",
+    "popunderScript": "<!-- Tempel script popunder/direct link di sini jika ada -->"
+  }
+}

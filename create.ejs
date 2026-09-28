@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Create Link - <%= config.siteName %></title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    body { background-color: #0b1329; color: #f8fafc; font-family: system-ui, -apple-system, sans-serif; }
+    .card-box { background-color: #111a33; border: 1px solid #1e2942; }
+    .input-field { background-color: #0b1329; border: 1px solid #243252; color: #f8fafc; }
+    .input-field:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2); }
+    .tab-active { background-color: #1b2747; border-bottom: 2px solid #3b82f6; color: #ffffff; }
+    .tab-inactive { color: #94a3b8; }
+    .tab-inactive:hover { color: #e2e8f0; }
+  </style>
+</head>
+<body class="min-h-screen flex text-slate-100">
+
+  <!-- SIDEBAR -->
+  <%- include('partials/sidebar') %>
+
+  <!-- MAIN WRAPPER -->
+  <div class="flex-1 flex flex-col min-w-0 bg-[#090e1d]">
+    
+    <!-- TOPBAR -->
+    <%- include('partials/topbar') %>
+
+    <!-- CONTENT -->
+    <main class="p-6 md:p-10 flex-1 max-w-5xl mx-auto w-full">
+
+      <div class="flex items-center justify-between mb-6">
+        <h1 class="text-3xl font-extrabold text-white tracking-tight">Create Link</h1>
+        <span class="text-xs bg-slate-800/80 text-slate-400 px-3 py-1.5 rounded-full border border-slate-700/80 font-mono">
+          <i class="fa-solid fa-gear text-blue-400 mr-1"></i> URL Formatting <span class="bg-blue-600 text-white text-[9px] px-1.5 py-0.5 rounded font-sans uppercase">NEW</span>
+        </span>
+      </div>
+
+      <!-- MAIN CARD GENERATOR (PERSIS SEPERTI SCREENSHOT) -->
+      <div class="card-box rounded-2xl p-6 shadow-2xl">
+        
+        <!-- TABS SWITCHER -->
+        <div class="flex border-b border-slate-800 mb-6">
+          <button id="tabSingle" onclick="switchTab('single')" class="flex-1 py-3 text-center font-medium text-sm transition flex items-center justify-center gap-2 tab-active rounded-t-xl">
+            <i class="fa-solid fa-link"></i> Single URL
+          </button>
+          <button id="tabBulk" onclick="switchTab('bulk')" class="flex-1 py-3 text-center font-medium text-sm transition flex items-center justify-center gap-2 tab-inactive rounded-t-xl">
+            <i class="fa-solid fa-layer-group"></i> Bulk URL
+          </button>
+        </div>
+
+        <!-- FORM CONTENT -->
+        <form id="createLinkForm" onsubmit="handleCreateLink(event)">
+          
+          <!-- SELECT DOMAIN -->
+          <div class="mb-5">
+            <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+              <i class="fa-solid fa-globe text-blue-400"></i> Select Domain
+            </label>
+            <div class="relative">
+              <select id="selectedDomain" class="w-full input-field px-4 py-3 rounded-xl text-sm appearance-none cursor-pointer pr-10">
+                <% config.domains.forEach(function(dom) { %>
+                  <option value="<%= dom %>"><%= dom %></option>
+                <% }); %>
+                <option value="<%= host %>"><%= host %> (Default Current Host)</option>
+              </select>
+              <div class="absolute inset-y-0 right-0 flex items-center px-4 pointer-events-none text-slate-400">
+                <i class="fa-solid fa-chevron-down text-xs"></i>
+              </div>
+            </div>
+          </div>
+
+          <!-- URL INPUT AREA -->
+          <div class="mb-5">
+            <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+              <i class="fa-solid fa-file-lines text-blue-400"></i> Enter URL(s)
+            </label>
+            <textarea id="urlInput" rows="5" placeholder="Paste link video/file di sini..." class="w-full input-field px-4 py-3 rounded-xl text-sm font-mono placeholder:text-slate-500" required></textarea>
+            <p class="text-[11px] text-slate-400 mt-1.5 flex items-center gap-1">
+              <i class="fa-solid fa-circle-info text-slate-500"></i> Each link must be on a new line.
+            </p>
+          </div>
+
+          <!-- CUSTOM ALIAS (SINGLE MODE ONLY) -->
+          <div id="customAliasBox" class="mb-5">
+            <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+              <i class="fa-solid fa-pen text-blue-400"></i> Custom Alias (Optional)
+            </label>
+            <input type="text" id="customAliasInput" placeholder="misal: video-viral-1" class="w-full input-field px-4 py-2.5 rounded-xl text-sm">
+          </div>
+
+          <!-- CAPTCHA SIMULATOR BADGE -->
+          <div class="mb-6 p-3.5 bg-[#080e1c] rounded-xl border border-slate-800 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <div class="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-xs">
+                <i class="fa-solid fa-check"></i>
+              </div>
+              <div>
+                <p class="text-xs font-semibold text-slate-200">Anti-Bot Verification</p>
+                <p class="text-[10px] text-slate-400">Cloudflare Turnstile Verified</p>
+              </div>
+            </div>
+            <span class="text-[10px] bg-slate-800 text-slate-400 px-2 py-1 rounded font-mono">Status: Ready</span>
+          </div>
+
+          <!-- SUBMIT BUTTON -->
+          <button type="submit" id="btnSubmit" class="w-full py-3.5 px-6 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl transition duration-200 shadow-lg shadow-blue-600/30 flex items-center justify-center gap-2 text-base cursor-pointer">
+            <i class="fa-solid fa-wand-magic-sparkles"></i> Create Links
+          </button>
+
+        </form>
+
+      </div>
+
+      <!-- RESULT PANEL -->
+      <div id="resultCard" class="hidden mt-8 card-box rounded-2xl p-6 shadow-2xl border-emerald-500/30 border">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-lg font-bold text-emerald-400 flex items-center gap-2">
+            <i class="fa-solid fa-circle-check"></i> Hasil Shortlink Berhasil Dibuat
+          </h3>
+          <button onclick="copyAllResults()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 rounded-lg border border-slate-700 transition flex items-center gap-1.5">
+            <i class="fa-solid fa-copy text-blue-400"></i> Salin Semua Link
+          </button>
+        </div>
+
+        <div id="resultList" class="space-y-3 font-mono text-sm max-h-60 overflow-y-auto pr-1"></div>
+      </div>
+
+    </main>
+  </div>
+
+  <script>
+    let activeTab = 'single';
+
+    function switchTab(tab) {
+      activeTab = tab;
+      const tabSingle = document.getElementById('tabSingle');
+      const tabBulk = document.getElementById('tabBulk');
+      const customAliasBox = document.getElementById('customAliasBox');
+      const urlInput = document.getElementById('urlInput');
+
+      if (tab === 'single') {
+        tabSingle.className = "flex-1 py-3 text-center font-medium text-sm transition flex items-center justify-center gap-2 tab-active rounded-t-xl";
+        tabBulk.className = "flex-1 py-3 text-center font-medium text-sm transition flex items-center justify-center gap-2 tab-inactive rounded-t-xl";
+        customAliasBox.style.display = 'block';
+        urlInput.placeholder = "Paste link video/file tunggal di sini...";
+        urlInput.rows = 3;
+      } else {
+        tabBulk.className = "flex-1 py-3 text-center font-medium text-sm transition flex items-center justify-center gap-2 tab-active rounded-t-xl";
+        tabSingle.className = "flex-1 py-3 text-center font-medium text-sm transition flex items-center justify-center gap-2 tab-inactive rounded-t-xl";
+        customAliasBox.style.display = 'none';
+        urlInput.placeholder = "Paste banyak link di sini...\nContoh:\nhttps://site.com/video1.mp4\nhttps://site.com/video2.mp4";
+        urlInput.rows = 6;
+      }
+    }
+
+    async function handleCreateLink(e) {
+      e.preventDefault();
+      const btn = document.getElementById('btnSubmit');
+      const urls = document.getElementById('urlInput').value;
+      const selectedDomain = document.getElementById('selectedDomain').value;
+      const customAlias = document.getElementById('customAliasInput').value;
+
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Generating Links...';
+
+      try {
+        const res = await fetch('/api/create-link', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ urls, selectedDomain, customAlias })
+        });
+        const data = await res.json();
+
+        if (data.success) {
+          showResults(data.links);
+        } else {
+          alert('Error: ' + (data.error || 'Failed to create link'));
+        }
+      } catch (err) {
+        alert('Server error: ' + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i> Create Links';
+      }
+    }
+
+    function showResults(links) {
+      const card = document.getElementById('resultCard');
+      const list = document.getElementById('resultList');
+      list.innerHTML = '';
+
+      links.forEach(link => {
+        const itemHtml = `
+          <div class="p-3 bg-[#080d1a] rounded-xl border border-slate-800 flex items-center justify-between gap-3">
+            <input type="text" readonly value="${link.shortUrl}" class="bg-transparent text-emerald-400 font-mono text-sm w-full outline-none">
+            <button onclick="copyToClipboard('${link.shortUrl}')" class="px-3 py-1.5 bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 text-xs font-semibold rounded-lg shrink-0 transition">
+              <i class="fa-solid fa-copy mr-1"></i> Copy
+            </button>
+          </div>
+        `;
+        list.insertAdjacentHTML('beforeend', itemHtml);
+      });
+
+      card.classList.remove('hidden');
+      card.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function copyToClipboard(text) {
+      navigator.clipboard.writeText(text);
+      alert('Link disalin ke clipboard:\n' + text);
+    }
+
+    function copyAllResults() {
+      const inputs = document.querySelectorAll('#resultList input');
+      const urls = Array.from(inputs).map(i => i.value).join('\n');
+      navigator.clipboard.writeText(urls);
+      alert(inputs.length + ' link disalin ke clipboard!');
+    }
+  </script>
+</body>
+</html>

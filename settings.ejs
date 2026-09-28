@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ad Config & Settings - <%= config.siteName %></title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    body { background-color: #0b1329; color: #f8fafc; font-family: system-ui, -apple-system, sans-serif; }
+    .card-box { background-color: #111a33; border: 1px solid #1e2942; }
+    .input-field { background-color: #0b1329; border: 1px solid #243252; color: #f8fafc; }
+  </style>
+</head>
+<body class="min-h-screen flex text-slate-100">
+
+  <!-- SIDEBAR -->
+  <%- include('partials/sidebar') %>
+
+  <!-- MAIN WRAPPER -->
+  <div class="flex-1 flex flex-col min-w-0 bg-[#090e1d]">
+    
+    <!-- TOPBAR -->
+    <%- include('partials/topbar') %>
+
+    <!-- CONTENT -->
+    <main class="p-6 md:p-10 flex-1 max-w-5xl mx-auto w-full">
+
+      <div class="flex items-center justify-between mb-8">
+        <div>
+          <h1 class="text-3xl font-extrabold text-white tracking-tight">Ad Config & Settings</h1>
+          <p class="text-xs text-slate-400 mt-1">Pengaturan 100% Monetisasi Iklan (Adsterra, Monetag, HilltopAds, PopAds, Google AdSense).</p>
+        </div>
+      </div>
+
+      <!-- FORM AD CONFIG -->
+      <div class="card-box rounded-2xl p-6 shadow-2xl">
+        <form onsubmit="handleSaveSettings(event)" class="space-y-5">
+          
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1.5">Nama Platform / Brand Website</label>
+            <input type="text" id="settingSiteName" value="<%= config.siteName || 'SHORTTEN.NET' %>" class="w-full input-field px-4 py-2.5 rounded-xl text-sm font-bold">
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1.5">Durasi Timer Countdown (Detik)</label>
+            <input type="number" id="settingTimer" value="<%= config.timerSeconds || 5 %>" min="1" max="60" class="w-full input-field px-4 py-2.5 rounded-xl text-sm">
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1.5">Script Iklan Banner Atas (HTML / JavaScript 728x90)</label>
+            <textarea id="settingTopBanner" rows="4" class="w-full input-field px-4 py-3 rounded-xl text-xs font-mono"><%= config.ads.topBanner %></textarea>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1.5">Script Iklan Banner Bawah (HTML / JavaScript 300x250)</label>
+            <textarea id="settingBottomBanner" rows="4" class="w-full input-field px-4 py-3 rounded-xl text-xs font-mono"><%= config.ads.bottomBanner %></textarea>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1.5">Script Popunder / Direct Link (Optional)</label>
+            <textarea id="settingPopunder" rows="3" class="w-full input-field px-4 py-3 rounded-xl text-xs font-mono"><%= config.ads.popunderScript %></textarea>
+          </div>
+
+          <div class="pt-4 border-t border-slate-800 flex justify-end">
+            <button type="submit" class="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm rounded-xl transition shadow-lg shadow-blue-600/30">
+              <i class="fa-solid fa-floppy-disk mr-1"></i> Simpan Pengaturan Iklan
+            </button>
+          </div>
+
+        </form>
+      </div>
+
+    </main>
+  </div>
+
+  <script>
+    async function handleSaveSettings(e) {
+      e.preventDefault();
+      const siteName = document.getElementById('settingSiteName').value;
+      const timerSeconds = document.getElementById('settingTimer').value;
+      const topBanner = document.getElementById('settingTopBanner').value;
+      const bottomBanner = document.getElementById('settingBottomBanner').value;
+      const popunderScript = document.getElementById('settingPopunder').value;
+
+      await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ siteName, timerSeconds, topBanner, bottomBanner, popunderScript })
+      });
+
+      alert('Pengaturan iklan berhasil disimpan!');
+      location.reload();
+    }
+  </script>
+</body>
+</html>
