@@ -6,7 +6,7 @@ const cors = require('cors');
 const app = express();
 const PORT = process.env.PORT || 4000;
 
-const DATA_DIR = path.join(__dirname, 'data');
+const DATA_DIR = process.env.VERCEL ? '/tmp' : path.join(process.cwd(), 'data');
 const LINKS_FILE = path.join(DATA_DIR, 'links.json');
 const CLICKS_FILE = path.join(DATA_DIR, 'clicks.json');
 const CONFIG_FILE = path.join(DATA_DIR, 'config.json');
@@ -49,21 +49,28 @@ function getLinks() {
   try { return JSON.parse(fs.readFileSync(LINKS_FILE, 'utf8')); } catch (e) { return []; }
 }
 function saveLinks(links) {
-  fs.writeFileSync(LINKS_FILE, JSON.stringify(links, null, 2));
+  try { fs.writeFileSync(LINKS_FILE, JSON.stringify(links, null, 2)); } catch (e) {}
 }
 
 function getClicks() {
   try { return JSON.parse(fs.readFileSync(CLICKS_FILE, 'utf8')); } catch (e) { return []; }
 }
 function saveClicks(clicks) {
-  fs.writeFileSync(CLICKS_FILE, JSON.stringify(clicks, null, 2));
+  try { fs.writeFileSync(CLICKS_FILE, JSON.stringify(clicks, null, 2)); } catch (e) {}
 }
 
 function getConfig() {
-  try { return JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8')); } catch (e) { return {}; }
+  try { return JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8')); } catch (e) {
+    return {
+      siteName: "SHORTTEN.NET",
+      timerSeconds: 5,
+      domains: ["cdn2.slicedrve.in", "videy.at", "aceimg.in"],
+      ads: { topBanner: "", bottomBanner: "", popunderScript: "" }
+    };
+  }
 }
 function saveConfig(config) {
-  fs.writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2));
+  try { fs.writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2)); } catch (e) {}
 }
 
 function generateId(length = 7) {
@@ -79,9 +86,10 @@ function generateId(length = 7) {
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(process.cwd(), 'public')));
 app.set('view engine', 'ejs');
-app.set('views', path.join(__dirname, 'views'));
+app.set('views', path.join(process.cwd(), 'views'));
+
 
 // Global template locals
 app.use((req, res, next) => {
