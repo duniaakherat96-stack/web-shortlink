@@ -1,35 +1,51 @@
 const express = require('express');
 const cors = require('cors');
+const fs = require('fs');
+const path = require('path');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
 
-let memLinks = {};
-let memConfig = {
-  siteName: "VIDOY SHORTLINK PRO",
-  domains: [
-    "video.cdnvideyyyyx.cloud",
-    "cdn.cdnvideyyyyx.cloud",
-    "cdn2.cdnvideyyyyx.cloud",
-    "v.cdnvideyyyyx.cloud",
-    "play.cdnvideyyyyx.cloud",
-    "short.cdnvideyyyyx.cloud",
-    "sv.cdnvideyyyyx.cloud"
-  ],
-  ads: {
-    popunderScript: `<script src="https://motorsnag.com/24/40/b3/2440b391464167452027662bb4458e0e.js"></script>`
-  }
-};
+app.use(cors());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-function renderFullHtml() {
-  const domainOptions = memConfig.domains.map(d => `<option value="${d}">${d}</option>`).join('');
+let memLinks = {};
+
+// Load existing links if available
+try {
+  const filePath = path.join(__dirname, '../data/links.json');
+  if (fs.existsSync(filePath)) {
+    const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+    if (Array.isArray(data)) {
+      data.forEach(item => {
+        if (item.id && item.originalUrl) {
+          memLinks[item.id] = item.originalUrl;
+        }
+      });
+    }
+  }
+} catch (e) {}
+
+const domainsList = [
+  "video.cdnvideyyyyx.cloud",
+  "cdn.cdnvideyyyyx.cloud",
+  "cdn2.cdnvideyyyyx.cloud",
+  "v.cdnvideyyyyx.cloud",
+  "play.cdnvideyyyyx.cloud",
+  "short.cdnvideyyyyx.cloud",
+  "sv.cdnvideyyyyx.cloud"
+];
+
+function renderDashboardHtml() {
+  const domainOptions = domainsList.map(d => `<option value="${d}">${d}</option>`).join('');
 
   return `<!DOCTYPE html>
 <html lang="id">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${memConfig.siteName}</title>
+  <title>VIDOY SHORTLINK PRO - Direct Redirect</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
@@ -38,11 +54,50 @@ function renderFullHtml() {
     .input-box { background-color: #0b132b; border: 1px solid #3a506b; color: #ffffff; }
     .input-box:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3); }
   </style>
-  ${memConfig.ads.popunderScript}
 </head>
 <body class="min-h-screen flex flex-col justify-between p-4 md:p-8">
 
-  <!-- ==================== 1. DASHBOARD VIEW (GENERATOR) ==================== -->
+  <!-- CLIENT-SIDE DIRECT REDIRECT HANDLER -->
+  <script>
+    (function() {
+      const path = window.location.pathname;
+      if (path.includes('/v/') || window.location.href.includes('/v/')) {
+        let code = '';
+        const parts = path.split('/');
+        const vIndex = parts.indexOf('v');
+        if (vIndex !== -1 && parts[vIndex + 1]) {
+          code = parts[vIndex + 1].split('?')[0];
+        }
+
+        if (code) {
+          // 1. Check local storage
+          try {
+            const store = JSON.parse(localStorage.getItem('links_store') || '{}');
+            if (store[code]) {
+              window.location.replace(store[code]);
+              return;
+            }
+          } catch(e) {}
+
+          // 2. Query API
+          fetch('/api/get-link?id=' + code)
+            .then(res => res.json())
+            .then(data => {
+              if (data && data.url) {
+                window.location.replace(data.url);
+              } else {
+                document.body.innerHTML = '<div style="color:white;text-align:center;padding:50px;font-family:sans-serif;"><h3>Link tidak ditemukan atau telah kedaluwarsa.</h3><a href="/" style="color:#38bdf8;">Kembali ke Dashboard</a></div>';
+              }
+            })
+            .catch(() => {
+              document.body.innerHTML = '<div style="color:white;text-align:center;padding:50px;font-family:sans-serif;"><h3>Mengalihkan...</h3></div>';
+            });
+        }
+      }
+    })();
+  </script>
+
+  <!-- DASHBOARD GENERATOR VIEW -->
   <div id="dashboardView" class="max-w-4xl mx-auto w-full flex-1 flex flex-col justify-between">
     <header class="flex items-center justify-between pb-6 border-b border-slate-700/60 mb-8">
       <div class="flex items-center gap-3">
@@ -51,11 +106,11 @@ function renderFullHtml() {
         </div>
         <div>
           <h1 class="text-xl font-extrabold text-white tracking-tight">SHORTLINK GENERATOR</h1>
-          <p class="text-xs text-slate-400">Mode Cepat • 100% Popunder Aktif</p>
+          <p class="text-xs text-emerald-400 font-medium"><i class="fa-solid fa-bolt"></i> 100% Direct Redirect (Tanpa Iklan / Tanpa Tunggu)</p>
         </div>
       </div>
       <span class="px-3 py-1 bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 rounded-full text-xs font-mono font-bold">
-        v3.5 • ULTRA-FAST
+        DIRECT 5-CHAR
       </span>
     </header>
 
@@ -92,7 +147,7 @@ function renderFullHtml() {
       <div id="resultContainer" class="hidden card-box rounded-2xl p-6 shadow-2xl border-2 border-emerald-500/50 mb-8">
         <div class="flex items-center justify-between mb-4 pb-3 border-b border-slate-700">
           <h2 class="text-base font-black text-emerald-400 flex items-center gap-2">
-            <i class="fa-solid fa-circle-check"></i> HASIL SHORTLINK BERHASIL DIBUAT (4-5 KARAKTER)
+            <i class="fa-solid fa-circle-check"></i> HASIL SHORTLINK DIRECT (4-5 KARAKTER)
           </h2>
           <button type="button" onclick="copyAllGeneratedLinks()" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-lg">
             Salin Semua Link
@@ -103,98 +158,11 @@ function renderFullHtml() {
     </main>
 
     <footer class="text-center py-4 border-t border-slate-800 text-xs text-slate-500">
-      &copy; ${new Date().getFullYear()} ${memConfig.siteName}. All rights reserved.
+      &copy; ${new Date().getFullYear()} VIDOY SHORTLINK PRO. Direct Redirect Engine.
     </footer>
   </div>
 
-  <!-- ==================== 2. SAFELINK VISITOR VIEW (CLEAN DIRECT REDIRECT + POPUNDER) ==================== -->
-  <div id="safelinkView" class="hidden max-w-md mx-auto w-full flex-1 flex flex-col justify-center items-center text-center p-4">
-    <div class="card-box rounded-3xl p-8 shadow-2xl border border-blue-500/40 w-full flex flex-col items-center cursor-pointer transform transition hover:scale-[1.02]" onclick="triggerRedirect()">
-      <div class="w-20 h-20 bg-blue-600/20 text-blue-400 border border-blue-500/30 rounded-2xl flex items-center justify-center text-3xl mb-5 shadow-inner">
-        <i class="fa-solid fa-play animate-pulse"></i>
-      </div>
-      
-      <h2 class="text-2xl font-black text-white mb-2 tracking-tight">Menuju ke Video</h2>
-      <p class="text-sm text-slate-400 mb-8">Klik tombol di bawah atau ketuk layar untuk langsung membuka link video.</p>
-
-      <a id="unlockBtn" href="#" class="w-full py-4 px-6 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 active:scale-[0.98] text-white font-black text-base rounded-2xl shadow-xl shadow-blue-600/30 flex items-center justify-center gap-3 transition">
-        <span>BUKA SEKARANG</span>
-        <i class="fa-solid fa-arrow-right"></i>
-      </a>
-
-      <p class="text-[11px] text-slate-500 mt-4">Direct safe redirect • ${memConfig.siteName}</p>
-    </div>
-  </div>
-
-  <!-- JAVASCRIPT ENGINE -->
   <script>
-    let globalTargetUrl = '';
-
-    function triggerRedirect() {
-      if (globalTargetUrl) {
-        window.location.href = globalTargetUrl;
-      }
-    }
-
-    // AUTO ROUTING CONTROLLER (CLIENT-SIDE)
-    const currentPath = window.location.pathname;
-    const currentSearch = window.location.search;
-
-    if (currentPath.includes('/v/') || window.location.href.includes('/v/')) {
-      // 1. SWITCH TO VISITOR VIEW
-      document.getElementById('dashboardView').classList.add('hidden');
-      document.getElementById('safelinkView').classList.remove('hidden');
-
-      // Extract shortcode
-      let shortCode = '';
-      const parts = window.location.pathname.split('/');
-      const vIndex = parts.indexOf('v');
-      if (vIndex !== -1 && parts[vIndex + 1]) {
-        shortCode = parts[vIndex + 1].split('?')[0];
-      }
-
-      // Check URL query param ?u= or lookup from localStorage/API
-      const urlParams = new URLSearchParams(currentSearch);
-      const uParam = urlParams.get('u');
-      if (uParam) {
-        try {
-          globalTargetUrl = decodeURIComponent(atob(uParam));
-        } catch(e) {}
-      }
-
-      if (!globalTargetUrl && shortCode) {
-        try {
-          const linksDb = JSON.parse(localStorage.getItem('links_store') || '{}');
-          if (linksDb[shortCode]) globalTargetUrl = linksDb[shortCode];
-        } catch(e) {}
-      }
-
-      function applyTargetUrl(url) {
-        globalTargetUrl = url;
-        const btn = document.getElementById('unlockBtn');
-        if (btn) btn.href = url;
-      }
-
-      // Fetch from server API if not found yet
-      if (!globalTargetUrl && shortCode) {
-        fetch('/api/get-link?id=' + shortCode)
-          .then(res => res.json())
-          .then(data => {
-            if (data && data.url) {
-              applyTargetUrl(data.url);
-            }
-          }).catch(() => {});
-      } else if (globalTargetUrl) {
-        applyTargetUrl(globalTargetUrl);
-      }
-
-    } else {
-      // 2. DASHBOARD GENERATOR MODE
-      document.getElementById('dashboardView').classList.remove('hidden');
-      document.getElementById('safelinkView').classList.add('hidden');
-    }
-
-    // 4-5 CHARACTER CODE GENERATOR
     function generateIdCode(len = 5) {
       const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
       let str = '';
@@ -305,26 +273,46 @@ function renderFullHtml() {
 module.exports = (req, res) => {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
 
-  // API Save Links
-  if (req.method === 'POST' && (req.url.includes('/api/save-links') || req.url.includes('save-links'))) {
-    const items = (req.body && req.body.items) ? req.body.items : [];
-    items.forEach(it => {
-      if (it.id && it.originalUrl) {
-        memLinks[it.id] = it.originalUrl;
-      }
-    });
-    return res.json({ success: true, saved: items.length });
+  // 1. DIRECT SERVER-SIDE REDIRECT FOR /v/:id
+  const vMatch = req.url.match(/\/v\/([a-zA-Z0-9_-]+)/);
+  if (vMatch && vMatch[1]) {
+    const id = vMatch[1];
+    if (memLinks[id]) {
+      return res.redirect(302, memLinks[id]);
+    }
   }
 
-  // API Get Link
+  // 2. API Save Links
+  if (req.method === 'POST' && (req.url.includes('/api/save-links') || req.url.includes('save-links'))) {
+    let rawBody = '';
+    req.on('data', chunk => { rawBody += chunk; });
+    req.on('end', () => {
+      try {
+        const parsed = JSON.parse(rawBody || '{}');
+        const items = parsed.items || (req.body && req.body.items) || [];
+        items.forEach(it => {
+          if (it.id && it.originalUrl) {
+            memLinks[it.id] = it.originalUrl;
+          }
+        });
+        return res.json({ success: true, saved: items.length });
+      } catch(e) {
+        return res.json({ success: true, saved: 0 });
+      }
+    });
+    return;
+  }
+
+  // 3. API Get Link
   if (req.method === 'GET' && req.url.includes('/api/get-link')) {
-    const id = req.query.id;
+    const parsedUrl = new URL(req.url, 'https://' + (req.headers.host || 'localhost'));
+    const id = parsedUrl.searchParams.get('id') || (req.query && req.query.id);
     if (id && memLinks[id]) {
       return res.json({ success: true, url: memLinks[id] });
     }
     return res.json({ success: false, url: null });
   }
 
-  // Render Full Page
-  return res.send(renderFullHtml());
+  // 4. Render Dashboard or Client-Side Redirect Helper
+  return res.send(renderDashboardHtml());
 };
