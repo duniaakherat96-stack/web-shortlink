@@ -80,14 +80,6 @@ app.use((req, res, next) => {
   next();
 });
 
-// URL Normalizer for Vercel Rewrites
-app.use((req, res, next) => {
-  if (req.url.startsWith('/api/index.js')) {
-    req.url = req.url.slice('/api/index.js'.length) || '/';
-  }
-  next();
-});
-
 // CLEAN, FAST & RELIABLE DASHBOARD
 function renderDashboardHtml(config, host) {
   const domainOptions = (config.domains || []).map(d => `<option value="${d}">${d}</option>`).join('');
@@ -237,11 +229,12 @@ function renderDashboardHtml(config, host) {
           code = customAlias.replace(/[^a-zA-Z0-9_-]/g, '');
         }
 
-        const shortUrl = hostDomain + '/v/' + code;
+        const b64 = btoa(encodeURIComponent(origUrl));
+        const shortUrl = hostDomain + '/v/' + code + '?u=' + b64;
         results.push({ id: code, shortUrl: shortUrl, originalUrl: origUrl });
       });
 
-      // Sync to server
+      // Background sync to server memory
       try {
         fetch('/api/create-link', {
           method: 'POST',
@@ -395,112 +388,117 @@ function renderSafelinkHtml(link, config, isVideo) {
 </html>`;
 }
 
-// Routes
-app.get(['/', '/create', '/overview'], (req, res) => {
+// UNIVERSAL ROUTER & DISPATCHER (100% IMMUNE TO VERCEL REWRITES)
+app.all('*', (req, res) => {
+  const reqPath = req.headers['x-matched-path'] || req.headers['x-forwarded-uri'] || req.url || '';
+
+  // 1. SAFELINK VISITOR PAGE (/v/...)
+  if (reqPath.includes('/v/') || req.url.includes('/v/')) {
+    const fullPath = reqPath.includes('/v/') ? reqPath : req.url;
+    const pathPart = fullPath.split('?')[0];
+    const code = pathPart.substring(pathPart.indexOf('/v/') + 3);
+
+    const links = getLinks();
+    let link = links.find(l => l.id === code);
+
+    let targetUrl = '';
+    if (req.query && req.query.u) {
+      try {
+        targetUrl = decodeURIComponent(Buffer.from(req.query.u, 'base64').toString('utf8'));
+      } catch(e) {}
+    }
+
+    if (!link && targetUrl) {
+      link = { id: code, originalUrl: targetUrl, shortUrl: req.originalUrl };
+    }
+
+    if (!link) {
+      return res.status(404).send('<h2 style="color:white;background:#0b0f19;padding:40px;font-family:sans-serif;">404 - Shortlink Not Found or Expired</h2>');
+    }
+
+    link.clicks = (link.clicks || 0) + 1;
+    saveLinks(links);
+
+    const clicks = getClicks();
+    const clientIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1';
+    clicks.unshift({
+      linkId: link.id,
+      shortUrl: link.shortUrl || req.originalUrl,
+      originalUrl: link.originalUrl,
+      ip: clientIp,
+      userAgent: req.headers['user-agent'] || 'Unknown',
+      timestamp: new Date().toISOString()
+    });
+    saveClicks(clicks.slice(0, 500));
+
+    const config = getConfig();
+    const isVideo = (link.originalUrl || '').match(/\.(mp4|webm|m3u8|ogg)$/i) || (link.originalUrl || '').includes('cdn.');
+    return res.send(renderSafelinkHtml(link, config, isVideo));
+  }
+
+  // 2. DIRECT REDIRECT (/go/...)
+  if (reqPath.includes('/go/') || req.url.includes('/go/')) {
+    const fullPath = reqPath.includes('/go/') ? reqPath : req.url;
+    const pathPart = fullPath.split('?')[0];
+    const code = pathPart.substring(pathPart.indexOf('/go/') + 4);
+    const links = getLinks();
+    let link = links.find(l => l.id === code);
+    if (!link && req.query && req.query.u) {
+      try {
+        const decodedUrl = decodeURIComponent(Buffer.from(req.query.u, 'base64').toString('utf8'));
+        link = { originalUrl: decodedUrl };
+      } catch (e) {}
+    }
+    if (!link) return res.status(404).send('404 - Link Not Found');
+    return res.redirect(link.originalUrl);
+  }
+
+  // 3. API CREATE LINK
+  if (req.method === 'POST' && (reqPath.includes('create-link') || req.url.includes('create-link'))) {
+    const { urls, selectedDomain, customAlias } = req.body || {};
+    if (!urls || typeof urls !== 'string') {
+      return res.status(400).json({ error: 'URLs input is required' });
+    }
+
+    const urlList = urls.split('\n').map(u => u.trim()).filter(u => u.length > 0);
+    const links = getLinks();
+    const createdItems = [];
+    const currentHost = req.get('host');
+    const protocol = req.protocol || 'https';
+
+    urlList.forEach((originalUrl) => {
+      let code = generateId(7);
+      if (urlList.length === 1 && customAlias && customAlias.trim().length > 0) {
+        code = customAlias.trim().replace(/[^a-zA-Z0-9_-]/g, '');
+      }
+
+      let domainHost = selectedDomain && selectedDomain.trim() !== '' ? selectedDomain.trim() : currentHost;
+      if (!domainHost.startsWith('http://') && !domainHost.startsWith('https://')) {
+        domainHost = `${protocol}://${domainHost}`;
+      }
+
+      const shortUrl = `${domainHost}/v/${code}`;
+      const newLinkObj = {
+        id: code,
+        originalUrl,
+        shortUrl,
+        domain: selectedDomain || currentHost,
+        clicks: 0,
+        createdAt: new Date().toISOString()
+      };
+
+      links.unshift(newLinkObj);
+      createdItems.push(newLinkObj);
+    });
+
+    saveLinks(links);
+    return res.json({ success: true, count: createdItems.length, links: createdItems });
+  }
+
+  // 4. DEFAULT DASHBOARD
   const config = getConfig();
   const host = req.get('host');
-  res.send(renderDashboardHtml(config, host));
-});
-
-// Visitor Safelink Page
-app.get(['/v/:id', '/api/v/:id'], (req, res) => {
-  const code = req.params.id;
-  const links = getLinks();
-  let link = links.find(l => l.id === code);
-
-  if (!link && req.query.u) {
-    try {
-      const decodedUrl = decodeURIComponent(Buffer.from(req.query.u, 'base64').toString('utf8'));
-      link = { id: code, originalUrl: decodedUrl, shortUrl: req.originalUrl };
-    } catch (e) {}
-  }
-
-  if (!link) {
-    return res.status(404).send('<h2 style="color:white;background:#0b0f19;padding:40px;font-family:sans-serif;">404 - Shortlink Not Found or Expired</h2>');
-  }
-
-  link.clicks = (link.clicks || 0) + 1;
-  saveLinks(links);
-
-  const clicks = getClicks();
-  const clientIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1';
-  clicks.unshift({
-    linkId: link.id,
-    shortUrl: link.shortUrl || req.originalUrl,
-    originalUrl: link.originalUrl,
-    ip: clientIp,
-    userAgent: req.headers['user-agent'] || 'Unknown',
-    timestamp: new Date().toISOString()
-  });
-  saveClicks(clicks.slice(0, 500));
-
-  const config = getConfig();
-  const isVideo = link.originalUrl.match(/\.(mp4|webm|m3u8|ogg)$/i) || link.originalUrl.includes('cdn.');
-
-  res.send(renderSafelinkHtml(link, config, isVideo));
-});
-
-// Direct Destination Redirect
-app.get(['/go/:id', '/api/go/:id'], (req, res) => {
-  const links = getLinks();
-  let link = links.find(l => l.id === req.params.id);
-  if (!link && req.query.u) {
-    try {
-      const decodedUrl = decodeURIComponent(Buffer.from(req.query.u, 'base64').toString('utf8'));
-      link = { originalUrl: decodedUrl };
-    } catch (e) {}
-  }
-  if (!link) return res.status(404).send('404 - Link Not Found');
-  res.redirect(link.originalUrl);
-});
-
-// API Create Short Links
-app.post(['/api/create-link', '/create-link'], (req, res) => {
-  const { urls, selectedDomain, customAlias } = req.body;
-  if (!urls || typeof urls !== 'string') {
-    return res.status(400).json({ error: 'URLs input is required' });
-  }
-
-  const urlList = urls.split('\n').map(u => u.trim()).filter(u => u.length > 0);
-  if (urlList.length === 0) {
-    return res.status(400).json({ error: 'Please enter at least one valid URL' });
-  }
-
-  const links = getLinks();
-  const createdItems = [];
-  const currentHost = req.get('host');
-  const protocol = req.protocol || 'https';
-
-  urlList.forEach((originalUrl) => {
-    let code = generateId(7);
-    if (urlList.length === 1 && customAlias && customAlias.trim().length > 0) {
-      code = customAlias.trim().replace(/[^a-zA-Z0-9_-]/g, '');
-    }
-
-    let domainHost = selectedDomain && selectedDomain.trim() !== '' ? selectedDomain.trim() : currentHost;
-    if (!domainHost.startsWith('http://') && !domainHost.startsWith('https://')) {
-      domainHost = `${protocol}://${domainHost}`;
-    }
-
-    const shortUrl = `${domainHost}/v/${code}`;
-    const localDirectUrl = `${protocol}://${currentHost}/v/${code}`;
-
-    const newLinkObj = {
-      id: code,
-      originalUrl,
-      shortUrl,
-      localDirectUrl,
-      domain: selectedDomain || currentHost,
-      clicks: 0,
-      createdAt: new Date().toISOString()
-    };
-
-    links.unshift(newLinkObj);
-    createdItems.push(newLinkObj);
-  });
-
-  saveLinks(links);
-  return res.json({ success: true, count: createdItems.length, links: createdItems });
+  return res.send(renderDashboardHtml(config, host));
 });
 
 function startServer(portToUse) {
