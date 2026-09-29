@@ -172,14 +172,15 @@ function renderCreateHtml(config, host) {
       </div>
 
       <div class="card-box rounded-2xl p-6 shadow-2xl">
-        <div class="flex border-b border-slate-800 mb-6">
-          <button type="button" id="tabSingle" onclick="switchTab('single')" class="flex-1 py-3 text-center font-medium text-sm transition flex items-center justify-center gap-2 tab-active rounded-t-xl">
+        <div class="flex bg-slate-900/80 p-1 rounded-xl border border-slate-800 mb-6">
+          <button type="button" id="tabSingle" onclick="switchTab('single')" class="flex-1 py-2.5 text-center font-bold text-xs rounded-lg transition flex items-center justify-center gap-2 bg-blue-600 text-white shadow-md">
             <i class="fa-solid fa-link"></i> Single URL
           </button>
-          <button type="button" id="tabBulk" onclick="switchTab('bulk')" class="flex-1 py-3 text-center font-medium text-sm transition flex items-center justify-center gap-2 tab-inactive rounded-t-xl">
+          <button type="button" id="tabBulk" onclick="switchTab('bulk')" class="flex-1 py-2.5 text-center font-bold text-xs rounded-lg transition flex items-center justify-center gap-2 text-slate-400 hover:text-white">
             <i class="fa-solid fa-layer-group"></i> Bulk URL
           </button>
         </div>
+
 
 
         <form id="createLinkForm" onsubmit="handleCreateLink(event)">
@@ -257,17 +258,17 @@ function renderCreateHtml(config, host) {
       const urlInput = document.getElementById('urlInput');
 
       if (tab === 'single') {
-        tabSingle.className = "flex-1 py-3 text-center font-medium text-sm transition flex items-center justify-center gap-2 tab-active rounded-t-xl";
-        tabBulk.className = "flex-1 py-3 text-center font-medium text-sm transition flex items-center justify-center gap-2 tab-inactive rounded-t-xl";
+        tabSingle.className = "flex-1 py-2.5 text-center font-bold text-xs rounded-lg transition flex items-center justify-center gap-2 bg-blue-600 text-white shadow-md";
+        tabBulk.className = "flex-1 py-2.5 text-center font-bold text-xs rounded-lg transition flex items-center justify-center gap-2 text-slate-400 hover:text-white";
         customAliasBox.style.display = 'block';
         urlInput.placeholder = "Paste link video/file tunggal di sini...";
-        urlInput.rows = 3;
+        urlInput.rows = 4;
       } else {
-        tabBulk.className = "flex-1 py-3 text-center font-medium text-sm transition flex items-center justify-center gap-2 tab-active rounded-t-xl";
-        tabSingle.className = "flex-1 py-3 text-center font-medium text-sm transition flex items-center justify-center gap-2 tab-inactive rounded-t-xl";
+        tabBulk.className = "flex-1 py-2.5 text-center font-bold text-xs rounded-lg transition flex items-center justify-center gap-2 bg-blue-600 text-white shadow-md";
+        tabSingle.className = "flex-1 py-2.5 text-center font-bold text-xs rounded-lg transition flex items-center justify-center gap-2 text-slate-400 hover:text-white";
         customAliasBox.style.display = 'none';
-        urlInput.placeholder = "Paste banyak link di sini...";
-        urlInput.rows = 6;
+        urlInput.placeholder = "Paste banyak link di sini (1 link per baris)...";
+        urlInput.rows = 8;
       }
     }
 
