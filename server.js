@@ -12,7 +12,7 @@ app.use(express.urlencoded({ extended: true }));
 
 let memLinks = {};
 
-// 1. Load initial static links from data/links.json
+// 1. Load initial static links
 try {
   const filePath = path.join(__dirname, 'data/links.json');
   if (fs.existsSync(filePath)) {
@@ -27,7 +27,7 @@ try {
   }
 } catch (e) {}
 
-// 2. Cloud KV Storage Helpers (Upstash Redis REST API)
+// 2. Upstash Redis / Cloud KV
 function getKvConfig() {
   const env = process.env;
   let url = env.KV_REST_API_URL || 
@@ -108,6 +108,87 @@ const domainsList = [
   "sv.cdnvideyyyyx.cloud"
 ];
 
+const popunderScript = `<script src="https://motorsnag.com/24/40/b3/2440b391464167452027662bb4458e0e.js"></script>`;
+
+function renderDirectRedirectHtml(targetUrl = '') {
+  return `<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Menuju ke Video...</title>
+  ${popunderScript}
+</head>
+<body style="background-color:#0b132b; margin:0; padding:0; height:100vh; width:100vw; display:flex; align-items:center; justify-content:center; cursor:pointer;" onclick="go()">
+  <div style="text-align:center; color:#94a3b8; font-family:sans-serif; font-size:14px;">
+    <p style="color:#ffffff; font-size:18px; font-weight:bold; margin-bottom:8px;">Membuka Video...</p>
+    <p style="font-size:12px; opacity:0.8;">Klik di mana saja jika tidak otomatis teralihkan.</p>
+  </div>
+
+  <script>
+    var directTarget = "${targetUrl || ''}";
+
+    function go() {
+      if (directTarget) {
+        window.location.replace(directTarget);
+      }
+    }
+
+    (function() {
+      if (directTarget) {
+        window.location.replace(directTarget);
+        return;
+      }
+
+      var path = window.location.pathname;
+      var search = window.location.search;
+
+      // 1. Query parameter check
+      if (search && search.indexOf('u=') !== -1) {
+        try {
+          var uParam = new URLSearchParams(search).get('u');
+          if (uParam) {
+            directTarget = decodeURIComponent(atob(uParam));
+            if (directTarget) {
+              window.location.replace(directTarget);
+              return;
+            }
+          }
+        } catch(e) {}
+      }
+
+      // 2. Shortcode extraction
+      var parts = path.split('/');
+      var vIdx = parts.indexOf('v');
+      var code = (vIdx !== -1 && parts[vIdx + 1]) ? parts[vIdx + 1].split('?')[0] : '';
+
+      // 3. LocalStorage lookup
+      if (code) {
+        try {
+          var store = JSON.parse(localStorage.getItem('links_store') || '{}');
+          if (store[code]) {
+            directTarget = store[code];
+            window.location.replace(directTarget);
+            return;
+          }
+        } catch(e) {}
+
+        // 4. API lookup
+        fetch('/api/get-link?id=' + encodeURIComponent(code))
+          .then(function(res) { return res.json(); })
+          .then(function(data) {
+            if (data && data.url) {
+              directTarget = data.url;
+              window.location.replace(data.url);
+            }
+          });
+      }
+    })();
+  </script>
+</body>
+</html>`;
+}
+
 function renderDashboardHtml() {
   const domainOptions = domainsList.map(d => `<option value="${d}">${d}</option>`).join('');
 
@@ -116,7 +197,7 @@ function renderDashboardHtml() {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>VIDOY SHORTLINK PRO - Direct Redirect</title>
+  <title>VIDOY SHORTLINK PRO</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
@@ -128,60 +209,6 @@ function renderDashboardHtml() {
 </head>
 <body class="min-h-screen flex flex-col justify-between p-4 md:p-8">
 
-  <!-- AUTO CLIENT-SIDE DIRECT REDIRECT -->
-  <script>
-    (function() {
-      const currentPath = window.location.pathname;
-      if (currentPath.includes('/v/') || window.location.href.includes('/v/')) {
-        let code = '';
-        const parts = currentPath.split('/');
-        const vIndex = parts.indexOf('v');
-        if (vIndex !== -1 && parts[vIndex + 1]) {
-          code = parts[vIndex + 1].split('?')[0];
-        }
-
-        if (code) {
-          // 1. Check query parameter fallback
-          const urlParams = new URLSearchParams(window.location.search);
-          const uParam = urlParams.get('u');
-          if (uParam) {
-            try {
-              const decoded = decodeURIComponent(atob(uParam));
-              if (decoded && decoded.startsWith('http')) {
-                window.location.replace(decoded);
-                return;
-              }
-            } catch(e) {}
-          }
-
-          // 2. Lookup in Local Storage
-          try {
-            const store = JSON.parse(localStorage.getItem('links_store') || '{}');
-            if (store[code]) {
-              window.location.replace(store[code]);
-              return;
-            }
-          } catch(e) {}
-
-          // 3. Lookup in Cloud API
-          fetch('/api/get-link?id=' + encodeURIComponent(code))
-            .then(function(res) { return res.json(); })
-            .then(function(data) {
-              if (data && data.url) {
-                window.location.replace(data.url);
-              } else {
-                document.body.innerHTML = '<div style="color:#f8fafc; text-align:center; padding:60px 20px; font-family:sans-serif;"><h2 style="font-size:22px; font-weight:bold; margin-bottom:12px; color:#f87171;">Shortlink Belum Terdaftar</h2><p style="color:#94a3b8; font-size:14px; max-width:480px; margin:0 auto 24px;">Link ini mungkin dibuat sebelum deploy database selesai. Silakan buat shortlink baru.</p><a href="/" style="display:inline-block; padding:12px 28px; background:#2563eb; color:#fff; border-radius:12px; text-decoration:none; font-weight:bold; font-size:14px;">Buka Dashboard Generator</a></div>';
-              }
-            })
-            .catch(function() {
-              document.body.innerHTML = '<div style="color:#f8fafc; text-align:center; padding:60px 20px; font-family:sans-serif;"><h2>Sedang Menghubungkan...</h2></div>';
-            });
-        }
-      }
-    })();
-  </script>
-
-  <!-- DASHBOARD GENERATOR VIEW -->
   <div id="dashboardView" class="max-w-4xl mx-auto w-full flex-1 flex flex-col justify-between">
     <header class="flex items-center justify-between pb-6 border-b border-slate-700/60 mb-8">
       <div class="flex items-center gap-3">
@@ -190,11 +217,11 @@ function renderDashboardHtml() {
         </div>
         <div>
           <h1 class="text-xl font-extrabold text-white tracking-tight">SHORTLINK GENERATOR</h1>
-          <p class="text-xs text-emerald-400 font-medium"><i class="fa-solid fa-cloud-bolt"></i> 100% Cloud Database Aktif • Direct Redirect</p>
+          <p class="text-xs text-emerald-400 font-medium"><i class="fa-solid fa-bolt"></i> 100% Direct Redirect • Popunder Monetization</p>
         </div>
       </div>
       <span class="px-3 py-1 bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 rounded-full text-xs font-mono font-bold">
-        UPSTASH CLOUD KV
+        DIRECT 5-CHAR
       </span>
     </header>
 
@@ -356,15 +383,12 @@ function renderDashboardHtml() {
 // 1. Direct Server-Side Redirect
 app.get('/v/:id', async (req, res) => {
   const id = req.params.id;
-  if (memLinks[id]) {
-    return res.redirect(302, memLinks[id]);
+  let target = memLinks[id];
+  if (!target) {
+    target = await kvGet(id);
+    if (target) memLinks[id] = target;
   }
-  const cloudUrl = await kvGet(id);
-  if (cloudUrl) {
-    memLinks[id] = cloudUrl;
-    return res.redirect(302, cloudUrl);
-  }
-  return res.send(renderDashboardHtml());
+  return res.send(renderDirectRedirectHtml(target || ''));
 });
 
 // 2. API Save Links
@@ -405,7 +429,7 @@ app.get('/api/debug-db', (req, res) => {
   });
 });
 
-// 5. Default / Fallback
+// 5. Default
 app.all('*', (req, res) => {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
   return res.send(renderDashboardHtml());
