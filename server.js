@@ -342,7 +342,7 @@ function renderCreatePage(config, host) {
           </div>
 
           <!-- SUBMIT BUTTON -->
-          <button type="submit" id="submitBtn" class="w-full py-3.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl transition shadow-lg shadow-blue-600/30 flex items-center justify-center gap-2 text-sm cursor-pointer">
+          <button type="button" onclick="generateShortlinks(event)" id="submitBtn" class="w-full py-3.5 bg-blue-600 hover:bg-blue-500 active:scale-[0.99] text-white font-bold rounded-xl transition shadow-lg shadow-blue-600/30 flex items-center justify-center gap-2 text-sm cursor-pointer">
             <i class="fa-solid fa-wand-magic-sparkles"></i> Create Link
           </button>
         </form>
@@ -354,7 +354,7 @@ function renderCreatePage(config, host) {
           <h3 class="text-base font-bold text-emerald-400 flex items-center gap-2">
             <i class="fa-solid fa-circle-check"></i> Hasil Shortlink Aktif
           </h3>
-          <button onclick="copyAllShortlinks()" class="px-3 py-1.5 bg-[#14203d] hover:bg-[#1a2b52] text-xs font-semibold text-slate-200 rounded-lg border border-[#24355e] transition flex items-center gap-1.5">
+          <button type="button" onclick="copyAllShortlinks()" class="px-3 py-1.5 bg-[#14203d] hover:bg-[#1a2b52] text-xs font-semibold text-slate-200 rounded-lg border border-[#24355e] transition flex items-center gap-1.5">
             <i class="fa-solid fa-copy text-blue-400"></i> Salin Semua
           </button>
         </div>
@@ -380,7 +380,7 @@ function renderCreatePage(config, host) {
       if (mode === 'single') {
         tabSingle.className = "flex-1 py-2.5 text-center font-bold text-xs rounded-lg transition flex items-center justify-center gap-2 bg-[#1b2a4d] text-white border border-blue-500/40 shadow-md";
         tabBulk.className = "flex-1 py-2.5 text-center font-bold text-xs rounded-lg transition flex items-center justify-center gap-2 text-slate-400 hover:text-white";
-        aliasContainer.style.display = 'block';
+        if (aliasContainer) aliasContainer.style.display = 'block';
         urlContainer.innerHTML = \`
           <div class="relative flex items-center">
             <span class="absolute left-4 text-slate-500 text-sm"><i class="fa-solid fa-link"></i></span>
@@ -390,9 +390,9 @@ function renderCreatePage(config, host) {
       } else {
         tabBulk.className = "flex-1 py-2.5 text-center font-bold text-xs rounded-lg transition flex items-center justify-center gap-2 bg-[#1b2a4d] text-white border border-blue-500/40 shadow-md";
         tabSingle.className = "flex-1 py-2.5 text-center font-bold text-xs rounded-lg transition flex items-center justify-center gap-2 text-slate-400 hover:text-white";
-        aliasContainer.style.display = 'none';
+        if (aliasContainer) aliasContainer.style.display = 'none';
         urlContainer.innerHTML = \`
-          <textarea id="bulkUrlInput" rows="6" placeholder="Paste banyak link di sini (1 link per baris)...\\nhttps://site.com/video1.mp4\\nhttps://site.com/video2.mp4" class="w-full input-box px-4 py-3 rounded-xl text-sm font-mono placeholder:text-slate-600"></textarea>
+          <textarea id="bulkUrlInput" rows="6" placeholder="Paste banyak link di sini (1 link per baris)...&#10;https://site.com/video1.mp4&#10;https://site.com/video2.mp4" class="w-full input-box px-4 py-3 rounded-xl text-sm font-mono placeholder:text-slate-600"></textarea>
         \`;
       }
     }
@@ -412,22 +412,31 @@ function renderCreatePage(config, host) {
     }
 
     function generateShortlinks(e) {
-      e.preventDefault();
-      const domain = document.getElementById('domainSelect').value;
-      const alias = document.getElementById('aliasInput') ? document.getElementById('aliasInput').value.trim() : '';
+      if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      const domainEl = document.getElementById('domainSelect');
+      const domain = domainEl ? domainEl.value : window.location.host;
+      const aliasEl = document.getElementById('aliasInput');
+      const alias = aliasEl ? aliasEl.value.trim() : '';
       let urlList = [];
 
       if (currentMode === 'single') {
-        const val = document.getElementById('singleUrlInput').value.trim();
+        const inputEl = document.getElementById('singleUrlInput');
+        const val = inputEl ? inputEl.value.trim() : '';
         if (val) urlList.push(val);
       } else {
-        const val = document.getElementById('bulkUrlInput').value.trim();
-        urlList = val.split('\\n').map(u => u.trim()).filter(u => u.length > 0);
+        const inputEl = document.getElementById('bulkUrlInput');
+        const val = inputEl ? inputEl.value.trim() : '';
+        if (val) {
+          urlList = val.split(/\\r?\\n/).map(function(u){ return u.trim(); }).filter(function(u){ return u.length > 0; });
+        }
       }
 
       if (urlList.length === 0) {
-        alert('Harap masukkan URL yang ingin diperpendek!');
-        return;
+        alert('Harap masukkan minimal 1 URL untuk diperpendek!');
+        return false;
       }
 
       const generated = [];
@@ -447,7 +456,7 @@ function renderCreatePage(config, host) {
         generated.push({ id: code, shortUrl: shortUrl, originalUrl: rawUrl, domain: domain, createdAt: new Date().toLocaleDateString('en-US', { day: '2-digit', month: 'SHORT', year: 'numeric' }) });
       });
 
-      // Background sync
+      // Background sync to server
       try {
         fetch('/api/create-link', {
           method: 'POST',
@@ -464,6 +473,7 @@ function renderCreatePage(config, host) {
       } catch(err) {}
 
       displayResults(generated);
+      return false;
     }
 
     function displayResults(items) {
