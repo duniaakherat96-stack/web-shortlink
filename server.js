@@ -331,14 +331,14 @@ function renderCreateHtml(config, host) {
       list.innerHTML = '';
 
       links.forEach(link => {
-        const itemHtml = `
+        const itemHtml = \`
           <div class="p-3 bg-[#080d1a] rounded-xl border border-slate-800 flex items-center justify-between gap-3">
-            <input type="text" readonly value="${link.shortUrl}" class="bg-transparent text-emerald-400 font-mono text-sm w-full outline-none">
-            <button onclick="copyToClipboard('${link.shortUrl}')" class="px-3 py-1.5 bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 text-xs font-semibold rounded-lg shrink-0 transition">
+            <input type="text" readonly value="\${link.shortUrl}" class="bg-transparent text-emerald-400 font-mono text-sm w-full outline-none">
+            <button onclick="copyToClipboard('\${link.shortUrl}')" class="px-3 py-1.5 bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 text-xs font-semibold rounded-lg shrink-0 transition">
               <i class="fa-solid fa-copy mr-1"></i> Copy
             </button>
           </div>
-        `;
+        \`;
         list.insertAdjacentHTML('beforeend', itemHtml);
       });
 
@@ -348,12 +348,12 @@ function renderCreateHtml(config, host) {
 
     function copyToClipboard(text) {
       navigator.clipboard.writeText(text);
-      alert('Link disalin ke clipboard:\n' + text);
+      alert('Link disalin ke clipboard:\\n' + text);
     }
 
     function copyAllResults() {
       const inputs = document.querySelectorAll('#resultList input');
-      const urls = Array.from(inputs).map(i => i.value).join('\n');
+      const urls = Array.from(inputs).map(i => i.value).join('\\n');
       navigator.clipboard.writeText(urls);
       alert(inputs.length + ' link disalin ke clipboard!');
     }
