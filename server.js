@@ -12,7 +12,7 @@ app.use(express.urlencoded({ extended: true }));
 
 let memLinks = {};
 
-// Load existing links if available
+// 1. Load initial static links from data/links.json
 try {
   const filePath = path.join(__dirname, 'data/links.json');
   if (fs.existsSync(filePath)) {
@@ -26,6 +26,54 @@ try {
     }
   }
 } catch (e) {}
+
+// 2. Cloud KV Storage Helpers (Vercel KV / Upstash Redis / STORAGE Prefix)
+function getKvConfig() {
+  const url = process.env.KV_REST_API_URL || 
+              process.env.UPSTASH_REDIS_REST_URL || 
+              process.env.STORAGE_REST_API_URL || 
+              process.env.STORAGE_KV_REST_API_URL || 
+              process.env.STORAGE_URL || 
+              "";
+              
+  const token = process.env.KV_REST_API_TOKEN || 
+                process.env.UPSTASH_REDIS_REST_TOKEN || 
+                process.env.STORAGE_REST_API_TOKEN || 
+                process.env.STORAGE_KV_REST_API_TOKEN || 
+                process.env.STORAGE_TOKEN || 
+                "";
+  return { url, token };
+}
+
+async function kvSet(key, value) {
+  const { url, token } = getKvConfig();
+  if (!url || !token) return false;
+  try {
+    const endpoint = url.replace(/\/$/, '') + `/set/${encodeURIComponent(key)}/${encodeURIComponent(value)}`;
+    const res = await fetch(endpoint, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    return res.ok;
+  } catch (e) {
+    return false;
+  }
+}
+
+async function kvGet(key) {
+  const { url, token } = getKvConfig();
+  if (!url || !token) return null;
+  try {
+    const endpoint = url.replace(/\/$/, '') + `/get/${encodeURIComponent(key)}`;
+    const res = await fetch(endpoint, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    return json.result ? decodeURIComponent(json.result) : null;
+  } catch (e) {
+    return null;
+  }
+}
 
 const domainsList = [
   "video.cdnvideyyyyx.cloud",
@@ -70,7 +118,20 @@ function renderDashboardHtml() {
         }
 
         if (code) {
-          // 1. Instant lookup from localStorage
+          // 1. Check query parameter fallback
+          const urlParams = new URLSearchParams(window.location.search);
+          const uParam = urlParams.get('u');
+          if (uParam) {
+            try {
+              const decoded = decodeURIComponent(atob(uParam));
+              if (decoded && decoded.startsWith('http')) {
+                window.location.replace(decoded);
+                return;
+              }
+            } catch(e) {}
+          }
+
+          // 2. Lookup in Local Storage
           try {
             const store = JSON.parse(localStorage.getItem('links_store') || '{}');
             if (store[code]) {
@@ -79,18 +140,18 @@ function renderDashboardHtml() {
             }
           } catch(e) {}
 
-          // 2. Lookup from API
+          // 3. Lookup in Cloud API
           fetch('/api/get-link?id=' + encodeURIComponent(code))
             .then(function(res) { return res.json(); })
             .then(function(data) {
               if (data && data.url) {
                 window.location.replace(data.url);
               } else {
-                document.body.innerHTML = '<div style="color:#f8fafc; text-align:center; padding:60px 20px; font-family:sans-serif;"><h2 style="font-size:22px; font-weight:bold; margin-bottom:12px;">Link Tidak Ditemukan</h2><p style="color:#94a3b8; font-size:14px; margin-bottom:20px;">Shortlink ini mungkin belum tersimpan atau telah kedaluwarsa.</p><a href="/" style="display:inline-block; padding:10px 24px; background:#2563eb; color:#fff; border-radius:8px; text-decoration:none; font-weight:bold;">Buka Dashboard</a></div>';
+                document.body.innerHTML = '<div style="color:#f8fafc; text-align:center; padding:60px 20px; font-family:sans-serif;"><h2 style="font-size:22px; font-weight:bold; margin-bottom:12px; color:#f87171;">Shortlink Belum Terdaftar di Cloud</h2><p style="color:#94a3b8; font-size:14px; max-width:480px; margin:0 auto 24px;">Link ini mungkin dibuat sebelum database aktif. Silakan buat shortlink baru di dashboard.</p><a href="/" style="display:inline-block; padding:12px 28px; background:#2563eb; color:#fff; border-radius:12px; text-decoration:none; font-weight:bold; font-size:14px;">Buka Dashboard Generator</a></div>';
               }
             })
             .catch(function() {
-              document.body.innerHTML = '<div style="color:#f8fafc; text-align:center; padding:60px 20px; font-family:sans-serif;"><h2>Sedang Mengalihkan...</h2></div>';
+              document.body.innerHTML = '<div style="color:#f8fafc; text-align:center; padding:60px 20px; font-family:sans-serif;"><h2>Sedang Menghubungkan...</h2></div>';
             });
         }
       }
@@ -106,11 +167,11 @@ function renderDashboardHtml() {
         </div>
         <div>
           <h1 class="text-xl font-extrabold text-white tracking-tight">SHORTLINK GENERATOR</h1>
-          <p class="text-xs text-emerald-400 font-medium"><i class="fa-solid fa-bolt"></i> 100% Direct Redirect (Tanpa Iklan / Tanpa Perantara)</p>
+          <p class="text-xs text-emerald-400 font-medium"><i class="fa-solid fa-cloud-bolt"></i> 100% Cloud Database Aktif • Direct Redirect</p>
         </div>
       </div>
       <span class="px-3 py-1 bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 rounded-full text-xs font-mono font-bold">
-        DIRECT 5-CHAR
+        UPSTASH CLOUD KV
       </span>
     </header>
 
@@ -213,7 +274,7 @@ function renderDashboardHtml() {
         localStorage.setItem('links_store', JSON.stringify(storeMap));
       } catch(e) {}
 
-      // Sync mapping to server API
+      // Sync mapping to server API & Cloud KV
       try {
         fetch('/api/save-links', {
           method: 'POST',
@@ -270,35 +331,48 @@ function renderDashboardHtml() {
 }
 
 // 1. Direct Server-Side Redirect
-app.get('/v/:id', (req, res) => {
+app.get('/v/:id', async (req, res) => {
   const id = req.params.id;
   if (memLinks[id]) {
     return res.redirect(302, memLinks[id]);
+  }
+  const cloudUrl = await kvGet(id);
+  if (cloudUrl) {
+    memLinks[id] = cloudUrl;
+    return res.redirect(302, cloudUrl);
   }
   return res.send(renderDashboardHtml());
 });
 
 // 2. API Save Links
-app.post(['/api/save-links', '/save-links'], (req, res) => {
+app.post(['/api/save-links', '/save-links'], async (req, res) => {
   const items = (req.body && req.body.items) ? req.body.items : [];
-  items.forEach(it => {
+  for (const it of items) {
     if (it.id && it.originalUrl) {
       memLinks[it.id] = it.originalUrl;
+      await kvSet(it.id, it.originalUrl);
     }
-  });
+  }
   return res.json({ success: true, saved: items.length });
 });
 
 // 3. API Get Link
-app.get('/api/get-link', (req, res) => {
+app.get('/api/get-link', async (req, res) => {
   const id = req.query.id;
   if (id && memLinks[id]) {
     return res.json({ success: true, url: memLinks[id] });
   }
+  if (id) {
+    const cloudUrl = await kvGet(id);
+    if (cloudUrl) {
+      memLinks[id] = cloudUrl;
+      return res.json({ success: true, url: cloudUrl });
+    }
+  }
   return res.json({ success: false, url: null });
 });
 
-// 4. Fallback
+// 4. Default / Fallback
 app.all('*', (req, res) => {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
   return res.send(renderDashboardHtml());
