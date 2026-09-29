@@ -57,20 +57,20 @@ function renderDashboardHtml() {
 </head>
 <body class="min-h-screen flex flex-col justify-between p-4 md:p-8">
 
-  <!-- CLIENT-SIDE DIRECT REDIRECT HANDLER -->
+  <!-- AUTO CLIENT-SIDE DIRECT REDIRECT -->
   <script>
     (function() {
-      const path = window.location.pathname;
-      if (path.includes('/v/') || window.location.href.includes('/v/')) {
+      const currentPath = window.location.pathname;
+      if (currentPath.includes('/v/') || window.location.href.includes('/v/')) {
         let code = '';
-        const parts = path.split('/');
+        const parts = currentPath.split('/');
         const vIndex = parts.indexOf('v');
         if (vIndex !== -1 && parts[vIndex + 1]) {
           code = parts[vIndex + 1].split('?')[0];
         }
 
         if (code) {
-          // 1. Check local storage
+          // 1. Instant lookup from localStorage
           try {
             const store = JSON.parse(localStorage.getItem('links_store') || '{}');
             if (store[code]) {
@@ -79,18 +79,18 @@ function renderDashboardHtml() {
             }
           } catch(e) {}
 
-          // 2. Query API
-          fetch('/api/get-link?id=' + code)
-            .then(res => res.json())
-            .then(data => {
+          // 2. Lookup from API
+          fetch('/api/get-link?id=' + encodeURIComponent(code))
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
               if (data && data.url) {
                 window.location.replace(data.url);
               } else {
-                document.body.innerHTML = '<div style="color:white;text-align:center;padding:50px;font-family:sans-serif;"><h3>Link tidak ditemukan atau telah kedaluwarsa.</h3><a href="/" style="color:#38bdf8;">Kembali ke Dashboard</a></div>';
+                document.body.innerHTML = '<div style="color:#f8fafc; text-align:center; padding:60px 20px; font-family:sans-serif;"><h2 style="font-size:22px; font-weight:bold; margin-bottom:12px;">Link Tidak Ditemukan</h2><p style="color:#94a3b8; font-size:14px; margin-bottom:20px;">Shortlink ini mungkin belum tersimpan atau telah kedaluwarsa.</p><a href="/" style="display:inline-block; padding:10px 24px; background:#2563eb; color:#fff; border-radius:8px; text-decoration:none; font-weight:bold;">Buka Dashboard</a></div>';
               }
             })
-            .catch(() => {
-              document.body.innerHTML = '<div style="color:white;text-align:center;padding:50px;font-family:sans-serif;"><h3>Mengalihkan...</h3></div>';
+            .catch(function() {
+              document.body.innerHTML = '<div style="color:#f8fafc; text-align:center; padding:60px 20px; font-family:sans-serif;"><h2>Sedang Mengalihkan...</h2></div>';
             });
         }
       }
@@ -106,7 +106,7 @@ function renderDashboardHtml() {
         </div>
         <div>
           <h1 class="text-xl font-extrabold text-white tracking-tight">SHORTLINK GENERATOR</h1>
-          <p class="text-xs text-emerald-400 font-medium"><i class="fa-solid fa-bolt"></i> 100% Direct Redirect (Tanpa Iklan / Tanpa Tunggu)</p>
+          <p class="text-xs text-emerald-400 font-medium"><i class="fa-solid fa-bolt"></i> 100% Direct Redirect (Tanpa Iklan / Tanpa Perantara)</p>
         </div>
       </div>
       <span class="px-3 py-1 bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 rounded-full text-xs font-mono font-bold">
@@ -269,7 +269,7 @@ function renderDashboardHtml() {
 </html>`;
 }
 
-// 1. DIRECT SERVER-SIDE REDIRECT FOR /v/:id
+// 1. Direct Server-Side Redirect
 app.get('/v/:id', (req, res) => {
   const id = req.params.id;
   if (memLinks[id]) {
@@ -298,7 +298,7 @@ app.get('/api/get-link', (req, res) => {
   return res.json({ success: false, url: null });
 });
 
-// 4. Default / Dashboard
+// 4. Fallback
 app.all('*', (req, res) => {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
   return res.send(renderDashboardHtml());
