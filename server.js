@@ -262,45 +262,59 @@ function renderCreateHtml(config, host) {
       }
     }
 
+    function generateRandomId(len = 7) {
+      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+      let res = '';
+      for (let i = 0; i < len; i++) res += chars.charAt(Math.floor(Math.random() * chars.length));
+      return res;
+    }
+
     async function handleCreateLink(e) {
       e.preventDefault();
       const btn = document.getElementById('btnSubmit');
-      const urls = document.getElementById('urlInput').value;
+      const urlText = document.getElementById('urlInput').value.trim();
       const selectedDomain = document.getElementById('selectedDomain').value;
-      const customAlias = document.getElementById('customAliasInput').value;
+      const customAlias = document.getElementById('customAliasInput').value.trim();
+
+      const urlList = urlText.split('\n').map(u => u.trim()).filter(u => u.length > 0);
+      if (urlList.length === 0) {
+        alert('Masukkan minimal 1 URL!');
+        return;
+      }
 
       btn.disabled = true;
       btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Generating Links...';
 
+      const generatedLinks = [];
+      const currentHost = window.location.host;
+      const protocol = window.location.protocol;
+      let domainHost = selectedDomain && selectedDomain !== '' ? selectedDomain : currentHost;
+      if (!domainHost.startsWith('http://') && !domainHost.startsWith('https://')) {
+        domainHost = protocol + '//' + domainHost;
+      }
+
+      urlList.forEach((origUrl, idx) => {
+        let code = generateRandomId(7);
+        if (urlList.length === 1 && customAlias) {
+          code = customAlias.replace(/[^a-zA-Z0-9_-]/g, '');
+        }
+        const b64 = btoa(encodeURIComponent(origUrl));
+        const shortUrl = domainHost + '/v/' + code + '?u=' + b64;
+        generatedLinks.push({ id: code, shortUrl: shortUrl, originalUrl: origUrl });
+      });
+
+      // Background sync to server memory
       try {
-        let res = await fetch('/api/create-link', {
+        fetch('/api/create-link', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ urls, selectedDomain, customAlias })
-        });
-        let data;
-        try {
-          data = await res.json();
-        } catch(e) {
-          res = await fetch('/create-link', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ urls, selectedDomain, customAlias })
-          });
-          data = await res.json();
-        }
+          body: JSON.stringify({ urls: urlText, selectedDomain, customAlias })
+        }).catch(() => {});
+      } catch(e) {}
 
-        if (data.success) {
-          showResults(data.links);
-        } else {
-          alert('Error: ' + (data.error || 'Failed to create link'));
-        }
-      } catch (err) {
-        alert('Server error: ' + err.message);
-      } finally {
-        btn.disabled = false;
-        btn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i> Create Links';
-      }
+      showResults(generatedLinks);
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i> Create Links';
     }
 
     function showResults(links) {
@@ -309,14 +323,14 @@ function renderCreateHtml(config, host) {
       list.innerHTML = '';
 
       links.forEach(link => {
-        const itemHtml = \`
+        const itemHtml = `
           <div class="p-3 bg-[#080d1a] rounded-xl border border-slate-800 flex items-center justify-between gap-3">
-            <input type="text" readonly value="\${link.shortUrl}" class="bg-transparent text-emerald-400 font-mono text-sm w-full outline-none">
-            <button onclick="copyToClipboard('\${link.shortUrl}')" class="px-3 py-1.5 bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 text-xs font-semibold rounded-lg shrink-0 transition">
+            <input type="text" readonly value="${link.shortUrl}" class="bg-transparent text-emerald-400 font-mono text-sm w-full outline-none">
+            <button onclick="copyToClipboard('${link.shortUrl}')" class="px-3 py-1.5 bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 text-xs font-semibold rounded-lg shrink-0 transition">
               <i class="fa-solid fa-copy mr-1"></i> Copy
             </button>
           </div>
-        \`;
+        `;
         list.insertAdjacentHTML('beforeend', itemHtml);
       });
 
@@ -326,12 +340,12 @@ function renderCreateHtml(config, host) {
 
     function copyToClipboard(text) {
       navigator.clipboard.writeText(text);
-      alert('Link disalin ke clipboard:\\n' + text);
+      alert('Link disalin ke clipboard:\n' + text);
     }
 
     function copyAllResults() {
       const inputs = document.querySelectorAll('#resultList input');
-      const urls = Array.from(inputs).map(i => i.value).join('\\n');
+      const urls = Array.from(inputs).map(i => i.value).join('\n');
       navigator.clipboard.writeText(urls);
       alert(inputs.length + ' link disalin ke clipboard!');
     }
@@ -489,8 +503,16 @@ app.post(['/api/create-link', '/create-link'], (req, res) => {
 
 // Visitor Safelink Page
 app.get(['/v/:id', '/api/v/:id'], (req, res) => {
+  const code = req.params.id;
   const links = getLinks();
-  const link = links.find(l => l.id === req.params.id);
+  let link = links.find(l => l.id === code);
+
+  if (!link && req.query.u) {
+    try {
+      const decodedUrl = decodeURIComponent(Buffer.from(req.query.u, 'base64').toString('utf8'));
+      link = { id: code, originalUrl: decodedUrl, shortUrl: req.originalUrl };
+    } catch (e) {}
+  }
 
   if (!link) {
     return res.status(404).send('<h2 style="color:white;background:#0b0f19;padding:40px;font-family:sans-serif;">404 - Shortlink Not Found or Expired</h2>');
@@ -503,13 +525,14 @@ app.get(['/v/:id', '/api/v/:id'], (req, res) => {
   const clientIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1';
   clicks.unshift({
     linkId: link.id,
-    shortUrl: link.shortUrl,
+    shortUrl: link.shortUrl || req.originalUrl,
     originalUrl: link.originalUrl,
     ip: clientIp,
     userAgent: req.headers['user-agent'] || 'Unknown',
     timestamp: new Date().toISOString()
   });
   saveClicks(clicks.slice(0, 500));
+
 
   const config = getConfig();
   const isVideo = link.originalUrl.match(/\.(mp4|webm|m3u8|ogg)$/i) || link.originalUrl.includes('cdn.');
