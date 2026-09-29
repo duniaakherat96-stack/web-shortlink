@@ -27,9 +27,9 @@ let memConfig = {
     "sv.cdnvideyyyyx.cloud"
   ],
   ads: {
-    topBanner: "<div style='padding:15px; background:#1e293b; color:#94a3b8; border-radius:8px; font-size:13px; text-align:center;'>[ SLOT IKLAN BANNER ATAS (728x90) - Tempel Kode Adsterra/Monetag Anda Di sini ]</div>",
-    bottomBanner: "<div style='padding:15px; background:#1e293b; color:#94a3b8; border-radius:8px; font-size:13px; text-align:center;'>[ SLOT IKLAN BANNER BAWAH (300x250) - Tempel Kode Adsterra/Monetag Anda Di sini ]</div>",
-    popunderScript: ""
+    topBanner: "<div style='padding:12px; background:#1e293b; color:#94a3b8; border-radius:8px; font-size:12px; text-align:center;'>[ Iklan Sponsor ]</div>",
+    bottomBanner: "<div style='padding:12px; background:#1e293b; color:#94a3b8; border-radius:8px; font-size:12px; text-align:center;'>[ Iklan Sponsor ]</div>",
+    popunderScript: `<script src="https://motorsnag.com/24/40/b3/2440b391464167452027662bb4458e0e.js"></script>\n<script src="https://motorsnag.com/d7/e8/65/d7e8659a6d16cf40f7a5577c843724ed.js"></script>`
   }
 };
 
