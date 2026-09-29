@@ -59,7 +59,7 @@ function renderFullHtml() {
         </div>
       </div>
       <span class="px-3 py-1 bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 rounded-full text-xs font-mono font-bold">
-        SYSTEM READY
+        v3.0 • ULTRA-SHORT (5 HURUF)
       </span>
     </header>
 
