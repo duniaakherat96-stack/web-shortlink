@@ -46,10 +46,10 @@ function getKvConfig() {
 
   if (!url || !token) {
     for (const k in env) {
-      if ((k.includes('REST_API_URL') || k.endsWith('_URL')) && !url && env[k].startsWith('http')) {
+      if ((k.includes('REST_API_URL') || k.endsWith('_URL')) && !url && typeof env[k] === 'string' && env[k].startsWith('http')) {
         url = env[k];
       }
-      if ((k.includes('REST_API_TOKEN') || k.endsWith('_TOKEN')) && !token && env[k].length > 10) {
+      if ((k.includes('REST_API_TOKEN') || k.endsWith('_TOKEN')) && !token && typeof env[k] === 'string' && env[k].length > 10) {
         token = env[k];
       }
     }
@@ -380,11 +380,16 @@ function renderDashboardHtml() {
 </html>`;
 }
 
-// 1. Direct Server-Side Redirect
-app.get('/v/:id', async (req, res) => {
-  const id = req.params.id;
-  let target = memLinks[id];
-  if (!target) {
+// 1. Direct Server-Side Route for /v/:id
+app.get(['/v/:id', '/v/*'], async (req, res) => {
+  let id = req.params.id;
+  if (!id && req.url) {
+    const parts = req.url.split('?')[0].split('/');
+    const vIdx = parts.indexOf('v');
+    if (vIdx !== -1 && parts[vIdx + 1]) id = parts[vIdx + 1];
+  }
+  let target = id ? memLinks[id] : null;
+  if (!target && id) {
     target = await kvGet(id);
     if (target) memLinks[id] = target;
   }
@@ -404,7 +409,7 @@ app.post(['/api/save-links', '/save-links'], async (req, res) => {
 });
 
 // 3. API Get Link
-app.get('/api/get-link', async (req, res) => {
+app.get(['/api/get-link', '/get-link'], async (req, res) => {
   const id = req.query.id;
   if (id && memLinks[id]) {
     return res.json({ success: true, url: memLinks[id] });
@@ -420,7 +425,7 @@ app.get('/api/get-link', async (req, res) => {
 });
 
 // 4. Debug endpoint
-app.get('/api/debug-db', (req, res) => {
+app.get(['/api/debug-db', '/debug-db'], (req, res) => {
   const cfg = getKvConfig();
   return res.json({
     configured: !!(cfg.url && cfg.token),
@@ -429,7 +434,7 @@ app.get('/api/debug-db', (req, res) => {
   });
 });
 
-// 5. Default
+// 5. Default Dashboard Fallback
 app.all('*', (req, res) => {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
   return res.send(renderDashboardHtml());

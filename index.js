@@ -46,10 +46,10 @@ function getKvConfig() {
 
   if (!url || !token) {
     for (const k in env) {
-      if ((k.includes('REST_API_URL') || k.endsWith('_URL')) && !url && env[k].startsWith('http')) {
+      if ((k.includes('REST_API_URL') || k.endsWith('_URL')) && !url && typeof env[k] === 'string' && env[k].startsWith('http')) {
         url = env[k];
       }
-      if ((k.includes('REST_API_TOKEN') || k.endsWith('_TOKEN')) && !token && env[k].length > 10) {
+      if ((k.includes('REST_API_TOKEN') || k.endsWith('_TOKEN')) && !token && typeof env[k] === 'string' && env[k].length > 10) {
         token = env[k];
       }
     }
@@ -380,73 +380,64 @@ function renderDashboardHtml() {
 </html>`;
 }
 
-// Serverless handler & API
-module.exports = async (req, res) => {
+// 1. Direct Server-Side Route for /v/:id
+app.get(['/v/:id', '/v/*'], async (req, res) => {
+  let id = req.params.id;
+  if (!id && req.url) {
+    const parts = req.url.split('?')[0].split('/');
+    const vIdx = parts.indexOf('v');
+    if (vIdx !== -1 && parts[vIdx + 1]) id = parts[vIdx + 1];
+  }
+  let target = id ? memLinks[id] : null;
+  if (!target && id) {
+    target = await kvGet(id);
+    if (target) memLinks[id] = target;
+  }
+  return res.send(renderDirectRedirectHtml(target || ''));
+});
+
+// 2. API Save Links
+app.post(['/api/save-links', '/save-links'], async (req, res) => {
+  const items = (req.body && req.body.items) ? req.body.items : [];
+  for (const it of items) {
+    if (it.id && it.originalUrl) {
+      memLinks[it.id] = it.originalUrl;
+      await kvSet(it.id, it.originalUrl);
+    }
+  }
+  return res.json({ success: true, saved: items.length });
+});
+
+// 3. API Get Link
+app.get(['/api/get-link', '/get-link'], async (req, res) => {
+  const id = req.query.id;
+  if (id && memLinks[id]) {
+    return res.json({ success: true, url: memLinks[id] });
+  }
+  if (id) {
+    const cloudUrl = await kvGet(id);
+    if (cloudUrl) {
+      memLinks[id] = cloudUrl;
+      return res.json({ success: true, url: cloudUrl });
+    }
+  }
+  return res.json({ success: false, url: null });
+});
+
+// 4. Debug endpoint
+app.get(['/api/debug-db', '/debug-db'], (req, res) => {
+  const cfg = getKvConfig();
+  return res.json({
+    configured: !!(cfg.url && cfg.token),
+    hasUrl: !!cfg.url,
+    hasToken: !!cfg.token
+  });
+});
+
+// 5. Default Dashboard Fallback
+app.all('*', (req, res) => {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-
-  // Parse path & parameters
-  let pathStr = (req.query && req.query._path) || req.url || '';
-  if (pathStr.startsWith('/')) pathStr = pathStr.substring(1);
-
-  // 1. DIRECT SERVER-SIDE REDIRECT FOR /v/:id
-  const vMatch = pathStr.match(/(?:^|\/)v\/([a-zA-Z0-9_-]+)/);
-  if (vMatch && vMatch[1]) {
-    const id = vMatch[1];
-    let target = memLinks[id];
-    if (!target) {
-      target = await kvGet(id);
-      if (target) memLinks[id] = target;
-    }
-    // Render instant redirect HTML with Popunder script
-    return res.send(renderDirectRedirectHtml(target || ''));
-  }
-
-  // 2. API Save Links
-  if (req.method === 'POST' && (pathStr.includes('save-links') || (req.url && req.url.includes('save-links')))) {
-    let body = req.body;
-    if (typeof body === 'string') {
-      try { body = JSON.parse(body); } catch(e) {}
-    }
-    const items = (body && body.items) ? body.items : [];
-    for (const it of items) {
-      if (it.id && it.originalUrl) {
-        memLinks[it.id] = it.originalUrl;
-        await kvSet(it.id, it.originalUrl);
-      }
-    }
-    return res.json({ success: true, saved: items.length });
-  }
-
-  // 3. API Get Link
-  if (req.method === 'GET' && (pathStr.includes('get-link') || (req.url && req.url.includes('get-link')))) {
-    let id = (req.query && req.query.id);
-    if (!id && req.url && req.url.includes('id=')) {
-      const q = new URLSearchParams(req.url.split('?')[1]);
-      id = q.get('id');
-    }
-    if (id && memLinks[id]) {
-      return res.json({ success: true, url: memLinks[id] });
-    }
-    if (id) {
-      const cloudUrl = await kvGet(id);
-      if (cloudUrl) {
-        memLinks[id] = cloudUrl;
-        return res.json({ success: true, url: cloudUrl });
-      }
-    }
-    return res.json({ success: false, url: null });
-  }
-
-  // 4. Debug endpoint
-  if (pathStr.includes('debug-db')) {
-    const cfg = getKvConfig();
-    return res.json({
-      configured: !!(cfg.url && cfg.token),
-      hasUrl: !!cfg.url,
-      hasToken: !!cfg.token
-    });
-  }
-
-  // 5. Render Dashboard
   return res.send(renderDashboardHtml());
-};
+});
+
+module.exports = app;
