@@ -86,10 +86,22 @@ function generateId(length = 7) {
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(express.static(path.join(process.cwd(), 'public')));
 app.set('view engine', 'ejs');
-app.set('views', path.join(process.cwd(), 'views'));
+app.set('views', [
+  path.join(process.cwd(), 'views'),
+  path.join(__dirname, 'views'),
+  path.join(__dirname, '../views')
+]);
 
+
+
+// URL Normalizer for Vercel Rewrites
+app.use((req, res, next) => {
+  if (req.url.startsWith('/api/index.js')) {
+    req.url = req.url.slice('/api/index.js'.length) || '/';
+  }
+  next();
+});
 
 // Global template locals
 app.use((req, res, next) => {
@@ -99,6 +111,7 @@ app.use((req, res, next) => {
   res.locals.activePage = req.path;
   next();
 });
+
 
 // Redirect root to /create (Create Link dashboard)
 app.get('/', (req, res) => res.redirect('/create'));
