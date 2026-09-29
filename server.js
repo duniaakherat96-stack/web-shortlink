@@ -180,9 +180,7 @@ function renderCreateHtml(config, host) {
             </label>
             <div class="relative">
               <select id="selectedDomain" class="w-full input-field px-4 py-3 rounded-xl text-sm appearance-none cursor-pointer pr-10">
-                <option value="video.cdnvideyyyyx.cloud">video.cdnvideyyyyx.cloud (Domain Anda)</option>
                 ${domainOptions}
-                <option value="${host}">${host} (Current Host)</option>
               </select>
               <div class="absolute inset-y-0 right-0 flex items-center px-4 pointer-events-none text-slate-400">
                 <i class="fa-solid fa-chevron-down text-xs"></i>
