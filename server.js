@@ -27,21 +27,34 @@ try {
   }
 } catch (e) {}
 
-// 2. Cloud KV Storage Helpers (Vercel KV / Upstash Redis / STORAGE Prefix)
+// 2. Cloud KV Storage Helpers (Upstash Redis REST API)
 function getKvConfig() {
-  const url = process.env.KV_REST_API_URL || 
-              process.env.UPSTASH_REDIS_REST_URL || 
-              process.env.STORAGE_REST_API_URL || 
-              process.env.STORAGE_KV_REST_API_URL || 
-              process.env.STORAGE_URL || 
-              "";
+  const env = process.env;
+  let url = env.KV_REST_API_URL || 
+            env.UPSTASH_REDIS_REST_URL || 
+            env.STORAGE_KV_REST_API_URL || 
+            env.STORAGE_REST_API_URL || 
+            env.STORAGE_URL || 
+            "";
               
-  const token = process.env.KV_REST_API_TOKEN || 
-                process.env.UPSTASH_REDIS_REST_TOKEN || 
-                process.env.STORAGE_REST_API_TOKEN || 
-                process.env.STORAGE_KV_REST_API_TOKEN || 
-                process.env.STORAGE_TOKEN || 
-                "";
+  let token = env.KV_REST_API_TOKEN || 
+              env.UPSTASH_REDIS_REST_TOKEN || 
+              env.STORAGE_KV_REST_API_TOKEN || 
+              env.STORAGE_REST_API_TOKEN || 
+              env.STORAGE_TOKEN || 
+              "";
+
+  if (!url || !token) {
+    for (const k in env) {
+      if ((k.includes('REST_API_URL') || k.endsWith('_URL')) && !url && env[k].startsWith('http')) {
+        url = env[k];
+      }
+      if ((k.includes('REST_API_TOKEN') || k.endsWith('_TOKEN')) && !token && env[k].length > 10) {
+        token = env[k];
+      }
+    }
+  }
+
   return { url, token };
 }
 
@@ -49,9 +62,14 @@ async function kvSet(key, value) {
   const { url, token } = getKvConfig();
   if (!url || !token) return false;
   try {
-    const endpoint = url.replace(/\/$/, '') + `/set/${encodeURIComponent(key)}/${encodeURIComponent(value)}`;
-    const res = await fetch(endpoint, {
-      headers: { Authorization: `Bearer ${token}` }
+    const cleanUrl = url.replace(/\/$/, '');
+    const res = await fetch(cleanUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(["SET", key, value])
     });
     return res.ok;
   } catch (e) {
@@ -63,13 +81,18 @@ async function kvGet(key) {
   const { url, token } = getKvConfig();
   if (!url || !token) return null;
   try {
-    const endpoint = url.replace(/\/$/, '') + `/get/${encodeURIComponent(key)}`;
-    const res = await fetch(endpoint, {
-      headers: { Authorization: `Bearer ${token}` }
+    const cleanUrl = url.replace(/\/$/, '');
+    const res = await fetch(cleanUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(["GET", key])
     });
     if (!res.ok) return null;
     const json = await res.json();
-    return json.result ? decodeURIComponent(json.result) : null;
+    return json.result || null;
   } catch (e) {
     return null;
   }
@@ -147,7 +170,7 @@ function renderDashboardHtml() {
               if (data && data.url) {
                 window.location.replace(data.url);
               } else {
-                document.body.innerHTML = '<div style="color:#f8fafc; text-align:center; padding:60px 20px; font-family:sans-serif;"><h2 style="font-size:22px; font-weight:bold; margin-bottom:12px; color:#f87171;">Shortlink Belum Terdaftar di Cloud</h2><p style="color:#94a3b8; font-size:14px; max-width:480px; margin:0 auto 24px;">Link ini mungkin dibuat sebelum database aktif. Silakan buat shortlink baru di dashboard.</p><a href="/" style="display:inline-block; padding:12px 28px; background:#2563eb; color:#fff; border-radius:12px; text-decoration:none; font-weight:bold; font-size:14px;">Buka Dashboard Generator</a></div>';
+                document.body.innerHTML = '<div style="color:#f8fafc; text-align:center; padding:60px 20px; font-family:sans-serif;"><h2 style="font-size:22px; font-weight:bold; margin-bottom:12px; color:#f87171;">Shortlink Belum Terdaftar</h2><p style="color:#94a3b8; font-size:14px; max-width:480px; margin:0 auto 24px;">Link ini mungkin dibuat sebelum deploy database selesai. Silakan buat shortlink baru.</p><a href="/" style="display:inline-block; padding:12px 28px; background:#2563eb; color:#fff; border-radius:12px; text-decoration:none; font-weight:bold; font-size:14px;">Buka Dashboard Generator</a></div>';
               }
             })
             .catch(function() {
@@ -233,7 +256,7 @@ function renderDashboardHtml() {
       return str;
     }
 
-    function processGenerateLinks() {
+    async function processGenerateLinks() {
       const rawText = document.getElementById('urlInput').value.trim();
       const domainSelect = document.getElementById('domainSelect').value;
       const customAlias = document.getElementById('customAlias').value.trim();
@@ -274,13 +297,13 @@ function renderDashboardHtml() {
         localStorage.setItem('links_store', JSON.stringify(storeMap));
       } catch(e) {}
 
-      // Sync mapping to server API & Cloud KV
+      // Save to server API & Cloud KV
       try {
-        fetch('/api/save-links', {
+        await fetch('/api/save-links', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ items: results })
-        }).catch(function() {});
+        });
       } catch(e) {}
 
       renderResultItems(results);
@@ -372,7 +395,17 @@ app.get('/api/get-link', async (req, res) => {
   return res.json({ success: false, url: null });
 });
 
-// 4. Default / Fallback
+// 4. Debug endpoint
+app.get('/api/debug-db', (req, res) => {
+  const cfg = getKvConfig();
+  return res.json({
+    configured: !!(cfg.url && cfg.token),
+    hasUrl: !!cfg.url,
+    hasToken: !!cfg.token
+  });
+});
+
+// 5. Default / Fallback
 app.all('*', (req, res) => {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
   return res.send(renderDashboardHtml());
