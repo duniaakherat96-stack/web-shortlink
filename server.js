@@ -113,16 +113,25 @@ app.use((req, res, next) => {
 });
 
 
-// Create Link Dashboard (Direct Render without redirect loop)
+// Create Link Dashboard (Direct Render)
 app.get('/', (req, res) => {
-  const links = getLinks();
-  res.render('create', { links });
+  try {
+    const links = getLinks();
+    res.render('create', { links });
+  } catch (err) {
+    res.status(500).send('Template error: ' + err.message);
+  }
 });
 
 app.get('/create', (req, res) => {
-  const links = getLinks();
-  res.render('create', { links });
+  try {
+    const links = getLinks();
+    res.render('create', { links });
+  } catch (err) {
+    res.status(500).send('Template error: ' + err.message);
+  }
 });
+
 
 
 // Overview Analytics Page
