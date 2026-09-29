@@ -155,12 +155,12 @@ function renderCreateHtml(config, host) {
   <!-- MAIN CONTENT -->
   <div class="flex-1 flex flex-col min-w-0 bg-[#090e1d]">
     <header class="h-16 bg-[#0f172a]/90 backdrop-blur-md border-b border-slate-800/80 px-6 flex items-center justify-between sticky top-0 z-30">
-      <div class="flex items-center gap-2 text-xs font-semibold text-slate-400">
-        <span>Dashboard</span>
-        <i class="fa-solid fa-chevron-right text-[10px] text-slate-600"></i>
-        <span class="text-white capitalize">Create Link</span>
+      <div class="flex items-center gap-3">
+        <span class="bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 text-[10px] px-2.5 py-1 rounded-full font-mono font-bold flex items-center gap-1.5">
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span> ENGINE ONLINE v2.0
+        </span>
+        <div class="w-8 h-8 rounded-full bg-blue-600 text-white font-bold text-xs flex items-center justify-center shadow-lg shadow-blue-600/30">D</div>
       </div>
-      <div class="w-8 h-8 rounded-full bg-blue-600 text-white font-bold text-xs flex items-center justify-center">D</div>
     </header>
 
     <main class="p-6 md:p-10 flex-1 max-w-5xl mx-auto w-full">
