@@ -2,8 +2,10 @@ const express = require('express');
 const cors = require('cors');
 
 const app = express();
+const PORT = process.env.PORT || 4000;
 
-const CONFIG = {
+let memLinks = {};
+let memConfig = {
   siteName: "VIDOY SHORTLINK PRO",
   timerSeconds: 5,
   domains: [
@@ -23,14 +25,14 @@ const CONFIG = {
 };
 
 function renderFullHtml() {
-  const domainOptions = CONFIG.domains.map(d => `<option value="${d}">${d}</option>`).join('');
+  const domainOptions = memConfig.domains.map(d => `<option value="${d}">${d}</option>`).join('');
 
   return `<!DOCTYPE html>
 <html lang="id">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${CONFIG.siteName}</title>
+  <title>${memConfig.siteName}</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
@@ -40,7 +42,7 @@ function renderFullHtml() {
     .input-box:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3); }
     .video-card { background-color: #151d2a; border: 1px solid #232f45; }
   </style>
-  ${CONFIG.ads.popunderScript}
+  ${memConfig.ads.popunderScript}
 </head>
 <body class="min-h-screen flex flex-col justify-between p-4 md:p-8">
 
@@ -76,8 +78,8 @@ function renderFullHtml() {
             </div>
           </div>
           <div>
-            <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">Custom Alias (Opsional)</label>
-            <input type="text" id="customAlias" placeholder="contoh: video-viral-1" class="w-full input-box px-4 py-3 rounded-xl text-sm">
+            <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">Custom Alias (Opsional 4-5 Huruf)</label>
+            <input type="text" id="customAlias" placeholder="contoh: viral" maxlength="8" class="w-full input-box px-4 py-3 rounded-xl text-sm">
           </div>
         </div>
 
@@ -94,7 +96,7 @@ function renderFullHtml() {
       <div id="resultContainer" class="hidden card-box rounded-2xl p-6 shadow-2xl border-2 border-emerald-500/50 mb-8">
         <div class="flex items-center justify-between mb-4 pb-3 border-b border-slate-700">
           <h2 class="text-base font-black text-emerald-400 flex items-center gap-2">
-            <i class="fa-solid fa-circle-check"></i> HASIL SHORTLINK BERHASIL DIBUAT
+            <i class="fa-solid fa-circle-check"></i> HASIL SHORTLINK BERHASIL DIBUAT (4-5 KARAKTER)
           </h2>
           <button type="button" onclick="copyAllGeneratedLinks()" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-lg">
             Salin Semua Link
@@ -105,7 +107,7 @@ function renderFullHtml() {
     </main>
 
     <footer class="text-center py-4 border-t border-slate-800 text-xs text-slate-500">
-      &copy; ${new Date().getFullYear()} ${CONFIG.siteName}. All rights reserved.
+      &copy; ${new Date().getFullYear()} ${memConfig.siteName}. All rights reserved.
     </footer>
   </div>
 
@@ -113,13 +115,13 @@ function renderFullHtml() {
   <div id="safelinkView" class="hidden max-w-3xl mx-auto w-full flex-1 flex flex-col justify-between">
     <header class="text-center py-3 border-b border-slate-800 mb-4">
       <h1 class="text-lg font-extrabold text-blue-400 tracking-wide flex items-center justify-center gap-2">
-        <i class="fa-solid fa-play-circle text-blue-500"></i> ${CONFIG.siteName}
+        <i class="fa-solid fa-play-circle text-blue-500"></i> ${memConfig.siteName}
       </h1>
     </header>
 
     <main class="w-full flex-1 flex flex-col items-center">
       <div class="w-full mb-5 overflow-hidden flex justify-center">
-        ${CONFIG.ads.topBanner}
+        ${memConfig.ads.topBanner}
       </div>
 
       <div class="video-card w-full rounded-2xl p-4 md:p-6 shadow-2xl mb-6">
@@ -132,7 +134,7 @@ function renderFullHtml() {
         <div id="countdownBox" class="text-center py-6 px-4 bg-slate-900/90 rounded-xl border border-slate-800 my-2">
           <div id="timerContainer">
             <div class="inline-flex items-center justify-center w-14 h-14 rounded-full bg-blue-600/10 border border-blue-500/30 text-blue-400 text-2xl font-black mb-3">
-              <span id="timerCount">${CONFIG.timerSeconds}</span>
+              <span id="timerCount">${memConfig.timerSeconds}</span>
             </div>
             <p class="text-sm font-semibold text-slate-200">Harap Tunggu Pemutar Media Sedang Disiapkan...</p>
             <p class="text-xs text-slate-400 mt-1">Video akan dapat dibuka setelah timer selesai.</p>
@@ -148,12 +150,12 @@ function renderFullHtml() {
       </div>
 
       <div class="w-full mb-6 overflow-hidden flex justify-center">
-        ${CONFIG.ads.bottomBanner}
+        ${memConfig.ads.bottomBanner}
       </div>
     </main>
 
     <footer class="text-center py-4 border-t border-slate-800/60 text-xs text-slate-500">
-      &copy; ${new Date().getFullYear()} ${CONFIG.siteName}. All rights reserved.
+      &copy; ${new Date().getFullYear()} ${memConfig.siteName}. All rights reserved.
     </footer>
   </div>
 
@@ -168,7 +170,15 @@ function renderFullHtml() {
       document.getElementById('dashboardView').classList.add('hidden');
       document.getElementById('safelinkView').classList.remove('hidden');
 
-      // Decode Target URL from ?u= query parameter
+      // Extract shortcode
+      let shortCode = '';
+      const parts = window.location.pathname.split('/');
+      const vIndex = parts.indexOf('v');
+      if (vIndex !== -1 && parts[vIndex + 1]) {
+        shortCode = parts[vIndex + 1].split('?')[0];
+      }
+
+      // Check URL query param ?u= or lookup from localStorage/API
       let targetUrl = '';
       const urlParams = new URLSearchParams(currentSearch);
       const uParam = urlParams.get('u');
@@ -178,17 +188,37 @@ function renderFullHtml() {
         } catch(e) {}
       }
 
-      if (targetUrl) {
-        document.getElementById('unlockBtn').href = targetUrl;
+      if (!targetUrl && shortCode) {
+        try {
+          const linksDb = JSON.parse(localStorage.getItem('links_store') || '{}');
+          if (linksDb[shortCode]) targetUrl = linksDb[shortCode];
+        } catch(e) {}
+      }
+
+      // Fetch from server API if not found yet
+      if (!targetUrl && shortCode) {
+        fetch('/api/get-link?id=' + shortCode)
+          .then(res => res.json())
+          .then(data => {
+            if (data && data.url) {
+              applyTargetUrl(data.url);
+            }
+          }).catch(() => {});
+      } else if (targetUrl) {
+        applyTargetUrl(targetUrl);
+      }
+
+      function applyTargetUrl(url) {
+        document.getElementById('unlockBtn').href = url;
         const videoEl = document.getElementById('mainVideo');
-        if (targetUrl.match(/\\.(mp4|webm|m3u8|ogg)$/i) || targetUrl.includes('cdn.')) {
-          videoEl.src = targetUrl;
+        if (url.match(/\\.(mp4|webm|m3u8|ogg)$/i) || url.includes('cdn.')) {
+          videoEl.src = url;
           document.getElementById('videoPlayerBox').classList.remove('hidden');
         }
       }
 
       // Start Countdown Timer
-      let timeLeft = ${CONFIG.timerSeconds};
+      let timeLeft = ${memConfig.timerSeconds};
       const timerCountEl = document.getElementById('timerCount');
       const timerContainer = document.getElementById('timerContainer');
       const unlockedContainer = document.getElementById('unlockedContainer');
@@ -209,10 +239,13 @@ function renderFullHtml() {
       document.getElementById('safelinkView').classList.add('hidden');
     }
 
-    function generateIdCode(len = 7) {
-      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    // 4-5 CHARACTER CODE GENERATOR
+    function generateIdCode(len = 5) {
+      const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
       let str = '';
-      for (let i = 0; i < len; i++) str += chars.charAt(Math.floor(Math.random() * chars.length));
+      for (let i = 0; i < len; i++) {
+        str += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
       return str;
     }
 
@@ -239,15 +272,34 @@ function renderFullHtml() {
         hostDomain = proto + '//' + hostDomain;
       }
 
+      const storeMap = JSON.parse(localStorage.getItem('links_store') || '{}');
+
       lines.forEach(function(origUrl) {
-        let code = generateIdCode(7);
+        // Generate 4-5 character short code
+        let code = generateIdCode(5);
         if (lines.length === 1 && customAlias) {
-          code = customAlias.replace(/[^a-zA-Z0-9_-]/g, '');
+          code = customAlias.replace(/[^a-zA-Z0-9_-]/g, '').substring(0, 8);
         }
-        const b64 = btoa(encodeURIComponent(origUrl));
-        const shortUrl = hostDomain + '/v/' + code + '?u=' + b64;
+
+        // Clean, super-short URL format (e.g. https://video.cdnvideyyyyx.cloud/v/7kX9q)
+        const shortUrl = hostDomain + '/v/' + code;
         results.push({ id: code, shortUrl: shortUrl, originalUrl: origUrl });
+        storeMap[code] = origUrl;
       });
+
+      // Save to localStorage
+      try {
+        localStorage.setItem('links_store', JSON.stringify(storeMap));
+      } catch(e) {}
+
+      // Sync mapping to server API
+      try {
+        fetch('/api/save-links', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ items: results })
+        }).catch(function() {});
+      } catch(e) {}
 
       renderResultItems(results);
     }
@@ -296,8 +348,30 @@ function renderFullHtml() {
 </html>`;
 }
 
-// Serverless entrypoint
+// Serverless handler & API
 module.exports = (req, res) => {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+
+  // API Save Links
+  if (req.method === 'POST' && (req.url.includes('/api/save-links') || req.url.includes('save-links'))) {
+    const items = (req.body && req.body.items) ? req.body.items : [];
+    items.forEach(it => {
+      if (it.id && it.originalUrl) {
+        memLinks[it.id] = it.originalUrl;
+      }
+    });
+    return res.json({ success: true, saved: items.length });
+  }
+
+  // API Get Link
+  if (req.method === 'GET' && req.url.includes('/api/get-link')) {
+    const id = req.query.id;
+    if (id && memLinks[id]) {
+      return res.json({ success: true, url: memLinks[id] });
+    }
+    return res.json({ success: false, url: null });
+  }
+
+  // Render Full Page
   return res.send(renderFullHtml());
 };
