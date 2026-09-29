@@ -237,12 +237,11 @@ function renderDashboardHtml(config, host) {
           code = customAlias.replace(/[^a-zA-Z0-9_-]/g, '');
         }
 
-        const b64 = btoa(encodeURIComponent(origUrl));
-        const shortUrl = hostDomain + '/v/' + code + '?u=' + b64;
+        const shortUrl = hostDomain + '/v/' + code;
         results.push({ id: code, shortUrl: shortUrl, originalUrl: origUrl });
       });
 
-      // Background sync to server memory
+      // Sync to server
       try {
         fetch('/api/create-link', {
           method: 'POST',
