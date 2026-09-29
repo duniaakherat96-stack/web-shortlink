@@ -273,12 +273,23 @@ function renderCreateHtml(config, host) {
       btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Generating Links...';
 
       try {
-        const res = await fetch('/api/create-link', {
+        let res = await fetch('/api/create-link', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ urls, selectedDomain, customAlias })
         });
-        const data = await res.json();
+        let data;
+        try {
+          data = await res.json();
+        } catch(e) {
+          res = await fetch('/create-link', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ urls, selectedDomain, customAlias })
+          });
+          data = await res.json();
+        }
+
         if (data.success) {
           showResults(data.links);
         } else {
@@ -427,8 +438,8 @@ app.get('/create', (req, res) => {
   res.send(renderCreateHtml(config, host));
 });
 
-// API Create Short Links
-app.post('/api/create-link', (req, res) => {
+// API Create Short Links (Multi-route support)
+app.post(['/api/create-link', '/create-link'], (req, res) => {
   const { urls, selectedDomain, customAlias } = req.body;
   if (!urls || typeof urls !== 'string') {
     return res.status(400).json({ error: 'URLs input is required' });
@@ -477,7 +488,7 @@ app.post('/api/create-link', (req, res) => {
 });
 
 // Visitor Safelink Page
-app.get('/v/:id', (req, res) => {
+app.get(['/v/:id', '/api/v/:id'], (req, res) => {
   const links = getLinks();
   const link = links.find(l => l.id === req.params.id);
 
@@ -507,12 +518,13 @@ app.get('/v/:id', (req, res) => {
 });
 
 // Direct Destination Redirect
-app.get('/go/:id', (req, res) => {
+app.get(['/go/:id', '/api/go/:id'], (req, res) => {
   const links = getLinks();
   const link = links.find(l => l.id === req.params.id);
   if (!link) return res.status(404).send('404 - Link Not Found');
   res.redirect(link.originalUrl);
 });
+
 
 function startServer(portToUse) {
   const server = app.listen(portToUse, () => {
