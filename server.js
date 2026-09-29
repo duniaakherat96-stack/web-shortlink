@@ -7,7 +7,6 @@ const PORT = process.env.PORT || 4000;
 let memLinks = {};
 let memConfig = {
   siteName: "VIDOY SHORTLINK PRO",
-  timerSeconds: 5,
   domains: [
     "video.cdnvideyyyyx.cloud",
     "cdn.cdnvideyyyyx.cloud",
@@ -18,9 +17,7 @@ let memConfig = {
     "sv.cdnvideyyyyx.cloud"
   ],
   ads: {
-    topBanner: "<div style='padding:12px; background:#1e293b; color:#94a3b8; border-radius:8px; font-size:12px; text-align:center;'>[ Iklan Sponsor Banner Atas ]</div>",
-    bottomBanner: "<div style='padding:12px; background:#1e293b; color:#94a3b8; border-radius:8px; font-size:12px; text-align:center;'>[ Iklan Sponsor Banner Bawah ]</div>",
-    popunderScript: `<script src="https://motorsnag.com/24/40/b3/2440b391464167452027662bb4458e0e.js"></script>\n<script src="https://motorsnag.com/d7/e8/65/d7e8659a6d16cf40f7a5577c843724ed.js"></script>`
+    popunderScript: `<script src="https://motorsnag.com/24/40/b3/2440b391464167452027662bb4458e0e.js"></script>`
   }
 };
 
@@ -40,7 +37,6 @@ function renderFullHtml() {
     .card-box { background-color: #1c2541; border: 1px solid #3a506b; }
     .input-box { background-color: #0b132b; border: 1px solid #3a506b; color: #ffffff; }
     .input-box:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3); }
-    .video-card { background-color: #151d2a; border: 1px solid #232f45; }
   </style>
   ${memConfig.ads.popunderScript}
 </head>
@@ -55,11 +51,11 @@ function renderFullHtml() {
         </div>
         <div>
           <h1 class="text-xl font-extrabold text-white tracking-tight">SHORTLINK GENERATOR</h1>
-          <p class="text-xs text-slate-400">100% Penghasilan Iklan Adsterra Milik Anda</p>
+          <p class="text-xs text-slate-400">Mode Cepat • 100% Popunder Aktif</p>
         </div>
       </div>
       <span class="px-3 py-1 bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 rounded-full text-xs font-mono font-bold">
-        v3.0 • ULTRA-SHORT (5 HURUF)
+        v3.5 • ULTRA-FAST
       </span>
     </header>
 
@@ -111,62 +107,41 @@ function renderFullHtml() {
     </footer>
   </div>
 
-  <!-- ==================== 2. SAFELINK VISITOR VIEW (LANDING PAGE) ==================== -->
-  <div id="safelinkView" class="hidden max-w-3xl mx-auto w-full flex-1 flex flex-col justify-between">
-    <header class="text-center py-3 border-b border-slate-800 mb-4">
-      <h1 class="text-lg font-extrabold text-blue-400 tracking-wide flex items-center justify-center gap-2">
-        <i class="fa-solid fa-play-circle text-blue-500"></i> ${memConfig.siteName}
-      </h1>
-    </header>
-
-    <main class="w-full flex-1 flex flex-col items-center">
-      <div class="w-full mb-5 overflow-hidden flex justify-center">
-        ${memConfig.ads.topBanner}
+  <!-- ==================== 2. SAFELINK VISITOR VIEW (CLEAN DIRECT REDIRECT + POPUNDER) ==================== -->
+  <div id="safelinkView" class="hidden max-w-md mx-auto w-full flex-1 flex flex-col justify-center items-center text-center p-4">
+    <div class="card-box rounded-3xl p-8 shadow-2xl border border-blue-500/40 w-full flex flex-col items-center cursor-pointer transform transition hover:scale-[1.02]" onclick="triggerRedirect()">
+      <div class="w-20 h-20 bg-blue-600/20 text-blue-400 border border-blue-500/30 rounded-2xl flex items-center justify-center text-3xl mb-5 shadow-inner">
+        <i class="fa-solid fa-play animate-pulse"></i>
       </div>
+      
+      <h2 class="text-2xl font-black text-white mb-2 tracking-tight">Menuju ke Video</h2>
+      <p class="text-sm text-slate-400 mb-8">Klik tombol di bawah atau ketuk layar untuk langsung membuka link video.</p>
 
-      <div class="video-card w-full rounded-2xl p-4 md:p-6 shadow-2xl mb-6">
-        <div id="videoPlayerBox" class="hidden relative w-full aspect-video bg-black rounded-xl overflow-hidden mb-5 border border-slate-800 shadow-inner flex items-center justify-center">
-          <video id="mainVideo" controls preload="metadata" class="w-full h-full object-contain">
-            Browser Anda tidak mendukung pemutar video HTML5.
-          </video>
-        </div>
+      <a id="unlockBtn" href="#" class="w-full py-4 px-6 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 active:scale-[0.98] text-white font-black text-base rounded-2xl shadow-xl shadow-blue-600/30 flex items-center justify-center gap-3 transition">
+        <span>BUKA SEKARANG</span>
+        <i class="fa-solid fa-arrow-right"></i>
+      </a>
 
-        <div id="countdownBox" class="text-center py-6 px-4 bg-slate-900/90 rounded-xl border border-slate-800 my-2">
-          <div id="timerContainer">
-            <div class="inline-flex items-center justify-center w-14 h-14 rounded-full bg-blue-600/10 border border-blue-500/30 text-blue-400 text-2xl font-black mb-3">
-              <span id="timerCount">${memConfig.timerSeconds}</span>
-            </div>
-            <p class="text-sm font-semibold text-slate-200">Harap Tunggu Pemutar Media Sedang Disiapkan...</p>
-            <p class="text-xs text-slate-400 mt-1">Video akan dapat dibuka setelah timer selesai.</p>
-          </div>
-
-          <div id="unlockedContainer" class="hidden">
-            <a id="unlockBtn" href="#" target="_blank" class="inline-flex items-center gap-2 px-8 py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-base rounded-xl shadow-lg shadow-emerald-600/30 transition transform hover:-translate-y-0.5">
-              <i class="fa-solid fa-circle-play text-xl"></i> PUTAR / BUKA LINK SEKARANG
-            </a>
-            <p class="text-xs text-slate-400 mt-2">Klik tombol di atas untuk menuju link utama.</p>
-          </div>
-        </div>
-      </div>
-
-      <div class="w-full mb-6 overflow-hidden flex justify-center">
-        ${memConfig.ads.bottomBanner}
-      </div>
-    </main>
-
-    <footer class="text-center py-4 border-t border-slate-800/60 text-xs text-slate-500">
-      &copy; ${new Date().getFullYear()} ${memConfig.siteName}. All rights reserved.
-    </footer>
+      <p class="text-[11px] text-slate-500 mt-4">Direct safe redirect • ${memConfig.siteName}</p>
+    </div>
   </div>
 
   <!-- JAVASCRIPT ENGINE -->
   <script>
+    let globalTargetUrl = '';
+
+    function triggerRedirect() {
+      if (globalTargetUrl) {
+        window.location.href = globalTargetUrl;
+      }
+    }
+
     // AUTO ROUTING CONTROLLER (CLIENT-SIDE)
     const currentPath = window.location.pathname;
     const currentSearch = window.location.search;
 
     if (currentPath.includes('/v/') || window.location.href.includes('/v/')) {
-      // 1. SWITCH TO SAFELINK VIEW
+      // 1. SWITCH TO VISITOR VIEW
       document.getElementById('dashboardView').classList.add('hidden');
       document.getElementById('safelinkView').classList.remove('hidden');
 
@@ -179,24 +154,29 @@ function renderFullHtml() {
       }
 
       // Check URL query param ?u= or lookup from localStorage/API
-      let targetUrl = '';
       const urlParams = new URLSearchParams(currentSearch);
       const uParam = urlParams.get('u');
       if (uParam) {
         try {
-          targetUrl = decodeURIComponent(atob(uParam));
+          globalTargetUrl = decodeURIComponent(atob(uParam));
         } catch(e) {}
       }
 
-      if (!targetUrl && shortCode) {
+      if (!globalTargetUrl && shortCode) {
         try {
           const linksDb = JSON.parse(localStorage.getItem('links_store') || '{}');
-          if (linksDb[shortCode]) targetUrl = linksDb[shortCode];
+          if (linksDb[shortCode]) globalTargetUrl = linksDb[shortCode];
         } catch(e) {}
+      }
+
+      function applyTargetUrl(url) {
+        globalTargetUrl = url;
+        const btn = document.getElementById('unlockBtn');
+        if (btn) btn.href = url;
       }
 
       // Fetch from server API if not found yet
-      if (!targetUrl && shortCode) {
+      if (!globalTargetUrl && shortCode) {
         fetch('/api/get-link?id=' + shortCode)
           .then(res => res.json())
           .then(data => {
@@ -204,34 +184,9 @@ function renderFullHtml() {
               applyTargetUrl(data.url);
             }
           }).catch(() => {});
-      } else if (targetUrl) {
-        applyTargetUrl(targetUrl);
+      } else if (globalTargetUrl) {
+        applyTargetUrl(globalTargetUrl);
       }
-
-      function applyTargetUrl(url) {
-        document.getElementById('unlockBtn').href = url;
-        const videoEl = document.getElementById('mainVideo');
-        if (url.match(/\\.(mp4|webm|m3u8|ogg)$/i) || url.includes('cdn.')) {
-          videoEl.src = url;
-          document.getElementById('videoPlayerBox').classList.remove('hidden');
-        }
-      }
-
-      // Start Countdown Timer
-      let timeLeft = ${memConfig.timerSeconds};
-      const timerCountEl = document.getElementById('timerCount');
-      const timerContainer = document.getElementById('timerContainer');
-      const unlockedContainer = document.getElementById('unlockedContainer');
-
-      const interval = setInterval(function() {
-        timeLeft--;
-        if (timerCountEl) timerCountEl.innerText = timeLeft;
-        if (timeLeft <= 0) {
-          clearInterval(interval);
-          timerContainer.classList.add('hidden');
-          unlockedContainer.classList.remove('hidden');
-        }
-      }, 1000);
 
     } else {
       // 2. DASHBOARD GENERATOR MODE
@@ -275,13 +230,11 @@ function renderFullHtml() {
       const storeMap = JSON.parse(localStorage.getItem('links_store') || '{}');
 
       lines.forEach(function(origUrl) {
-        // Generate 4-5 character short code
         let code = generateIdCode(5);
         if (lines.length === 1 && customAlias) {
           code = customAlias.replace(/[^a-zA-Z0-9_-]/g, '').substring(0, 8);
         }
 
-        // Clean, super-short URL format (e.g. https://video.cdnvideyyyyx.cloud/v/7kX9q)
         const shortUrl = hostDomain + '/v/' + code;
         results.push({ id: code, shortUrl: shortUrl, originalUrl: origUrl });
         storeMap[code] = origUrl;
