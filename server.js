@@ -113,14 +113,17 @@ app.use((req, res, next) => {
 });
 
 
-// Redirect root to /create (Create Link dashboard)
-app.get('/', (req, res) => res.redirect('/create'));
+// Create Link Dashboard (Direct Render without redirect loop)
+app.get('/', (req, res) => {
+  const links = getLinks();
+  res.render('create', { links });
+});
 
-// Create Link Dashboard (Matching screenshot Create Link UI)
 app.get('/create', (req, res) => {
   const links = getLinks();
   res.render('create', { links });
 });
+
 
 // Overview Analytics Page
 app.get('/overview', (req, res) => {
