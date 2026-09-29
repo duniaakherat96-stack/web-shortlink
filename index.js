@@ -3,7 +3,7 @@ const cors = require('cors');
 
 const app = express();
 
-let memConfig = {
+const CONFIG = {
   siteName: "VIDOY SHORTLINK PRO",
   timerSeconds: 5,
   domains: [
@@ -22,25 +22,15 @@ let memConfig = {
   }
 };
 
-function generateId(length = 7) {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-  let result = '';
-  for (let i = 0; i < length; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return result;
-}
-
-// Dashboard HTML
-function renderDashboard(config, host) {
-  const domainOptions = (config.domains || []).map(d => `<option value="${d}">${d}</option>`).join('');
+function renderFullHtml() {
+  const domainOptions = CONFIG.domains.map(d => `<option value="${d}">${d}</option>`).join('');
 
   return `<!DOCTYPE html>
 <html lang="id">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Shortlink Generator - ${config.siteName}</title>
+  <title>${CONFIG.siteName}</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
@@ -48,72 +38,177 @@ function renderDashboard(config, host) {
     .card-box { background-color: #1c2541; border: 1px solid #3a506b; }
     .input-box { background-color: #0b132b; border: 1px solid #3a506b; color: #ffffff; }
     .input-box:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3); }
+    .video-card { background-color: #151d2a; border: 1px solid #232f45; }
   </style>
+  ${CONFIG.ads.popunderScript}
 </head>
 <body class="min-h-screen flex flex-col justify-between p-4 md:p-8">
-  <header class="max-w-4xl mx-auto w-full flex items-center justify-between pb-6 border-b border-slate-700/60 mb-8">
-    <div class="flex items-center gap-3">
-      <div class="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white text-lg font-black shadow-lg shadow-blue-600/40">
-        <i class="fa-solid fa-link"></i>
-      </div>
-      <div>
-        <h1 class="text-xl font-extrabold text-white tracking-tight">SHORTLINK GENERATOR</h1>
-        <p class="text-xs text-slate-400">100% Penghasilan Iklan Adsterra Milik Anda</p>
-      </div>
-    </div>
-    <span class="px-3 py-1 bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 rounded-full text-xs font-mono font-bold">
-      SYSTEM READY
-    </span>
-  </header>
 
-  <main class="max-w-4xl mx-auto w-full flex-1">
-    <div class="card-box rounded-2xl p-6 md:p-8 shadow-2xl mb-8">
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
+  <!-- ==================== 1. DASHBOARD VIEW (GENERATOR) ==================== -->
+  <div id="dashboardView" class="max-w-4xl mx-auto w-full flex-1 flex flex-col justify-between">
+    <header class="flex items-center justify-between pb-6 border-b border-slate-700/60 mb-8">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white text-lg font-black shadow-lg shadow-blue-600/40">
+          <i class="fa-solid fa-link"></i>
+        </div>
         <div>
-          <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">Pilih Domain</label>
-          <div class="relative">
-            <select id="domainSelect" class="w-full input-box px-4 py-3 rounded-xl text-sm appearance-none cursor-pointer pr-10">
-              ${domainOptions}
-            </select>
-            <div class="absolute inset-y-0 right-0 flex items-center px-4 pointer-events-none text-slate-400">
-              <i class="fa-solid fa-chevron-down text-xs"></i>
+          <h1 class="text-xl font-extrabold text-white tracking-tight">SHORTLINK GENERATOR</h1>
+          <p class="text-xs text-slate-400">100% Penghasilan Iklan Adsterra Milik Anda</p>
+        </div>
+      </div>
+      <span class="px-3 py-1 bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 rounded-full text-xs font-mono font-bold">
+        SYSTEM READY
+      </span>
+    </header>
+
+    <main class="w-full flex-1">
+      <div class="card-box rounded-2xl p-6 md:p-8 shadow-2xl mb-8">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
+          <div>
+            <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">Pilih Domain</label>
+            <div class="relative">
+              <select id="domainSelect" class="w-full input-box px-4 py-3 rounded-xl text-sm appearance-none cursor-pointer pr-10">
+                ${domainOptions}
+              </select>
+              <div class="absolute inset-y-0 right-0 flex items-center px-4 pointer-events-none text-slate-400">
+                <i class="fa-solid fa-chevron-down text-xs"></i>
+              </div>
             </div>
           </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">Custom Alias (Opsional)</label>
+            <input type="text" id="customAlias" placeholder="contoh: video-viral-1" class="w-full input-box px-4 py-3 rounded-xl text-sm">
+          </div>
         </div>
-        <div>
-          <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">Custom Alias (Opsional)</label>
-          <input type="text" id="customAlias" placeholder="contoh: video-viral-1" class="w-full input-box px-4 py-3 rounded-xl text-sm">
+
+        <div class="mb-6">
+          <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">Masukkan Link Video / URL Asli (1 atau Banyak Sekaligus)</label>
+          <textarea id="urlInput" rows="5" placeholder="Paste link di sini (pisahkan dengan Enter)...&#10;https://www.cdnvideyyyyx.cloud/2026/09/2911.html&#10;https://motorsnag.com/pop4u0h7?key=...&#10;https://www.cdnvideyyyyx.cloud/2026/09/2922.html" class="w-full input-box px-4 py-3 rounded-xl text-sm font-mono"></textarea>
         </div>
-      </div>
 
-      <div class="mb-6">
-        <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">Masukkan Link Video / URL Asli (1 atau Banyak Sekaligus)</label>
-        <textarea id="urlInput" rows="5" placeholder="Paste link di sini (pisahkan dengan Enter)...&#10;https://www.cdnvideyyyyx.cloud/2026/09/2911.html&#10;https://motorsnag.com/pop4u0h7?key=...&#10;https://www.cdnvideyyyyx.cloud/2026/09/2922.html" class="w-full input-box px-4 py-3 rounded-xl text-sm font-mono"></textarea>
-      </div>
-
-      <button type="button" onclick="processGenerateLinks()" class="w-full py-4 bg-blue-600 hover:bg-blue-500 active:scale-[0.99] text-white font-extrabold text-base rounded-xl transition shadow-xl shadow-blue-600/30 flex items-center justify-center gap-2 cursor-pointer">
-        <i class="fa-solid fa-wand-magic-sparkles"></i> BUAT SHORTLINK SEKARANG
-      </button>
-    </div>
-
-    <div id="resultContainer" class="hidden card-box rounded-2xl p-6 shadow-2xl border-2 border-emerald-500/50 mb-8">
-      <div class="flex items-center justify-between mb-4 pb-3 border-b border-slate-700">
-        <h2 class="text-base font-black text-emerald-400 flex items-center gap-2">
-          <i class="fa-solid fa-circle-check"></i> HASIL SHORTLINK BERHASIL DIBUAT
-        </h2>
-        <button type="button" onclick="copyAllGeneratedLinks()" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-lg">
-          Salin Semua Link
+        <button type="button" onclick="processGenerateLinks()" class="w-full py-4 bg-blue-600 hover:bg-blue-500 active:scale-[0.99] text-white font-extrabold text-base rounded-xl transition shadow-xl shadow-blue-600/30 flex items-center justify-center gap-2 cursor-pointer">
+          <i class="fa-solid fa-wand-magic-sparkles"></i> BUAT SHORTLINK SEKARANG
         </button>
       </div>
-      <div id="resultList" class="space-y-3 font-mono text-sm max-h-80 overflow-y-auto pr-1"></div>
-    </div>
-  </main>
 
-  <footer class="max-w-4xl mx-auto w-full text-center py-4 border-t border-slate-800 text-xs text-slate-500">
-    &copy; ${new Date().getFullYear()} ${config.siteName}. All rights reserved.
-  </footer>
+      <div id="resultContainer" class="hidden card-box rounded-2xl p-6 shadow-2xl border-2 border-emerald-500/50 mb-8">
+        <div class="flex items-center justify-between mb-4 pb-3 border-b border-slate-700">
+          <h2 class="text-base font-black text-emerald-400 flex items-center gap-2">
+            <i class="fa-solid fa-circle-check"></i> HASIL SHORTLINK BERHASIL DIBUAT
+          </h2>
+          <button type="button" onclick="copyAllGeneratedLinks()" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-lg">
+            Salin Semua Link
+          </button>
+        </div>
+        <div id="resultList" class="space-y-3 font-mono text-sm max-h-80 overflow-y-auto pr-1"></div>
+      </div>
+    </main>
 
+    <footer class="text-center py-4 border-t border-slate-800 text-xs text-slate-500">
+      &copy; ${new Date().getFullYear()} ${CONFIG.siteName}. All rights reserved.
+    </footer>
+  </div>
+
+  <!-- ==================== 2. SAFELINK VISITOR VIEW (LANDING PAGE) ==================== -->
+  <div id="safelinkView" class="hidden max-w-3xl mx-auto w-full flex-1 flex flex-col justify-between">
+    <header class="text-center py-3 border-b border-slate-800 mb-4">
+      <h1 class="text-lg font-extrabold text-blue-400 tracking-wide flex items-center justify-center gap-2">
+        <i class="fa-solid fa-play-circle text-blue-500"></i> ${CONFIG.siteName}
+      </h1>
+    </header>
+
+    <main class="w-full flex-1 flex flex-col items-center">
+      <div class="w-full mb-5 overflow-hidden flex justify-center">
+        ${CONFIG.ads.topBanner}
+      </div>
+
+      <div class="video-card w-full rounded-2xl p-4 md:p-6 shadow-2xl mb-6">
+        <div id="videoPlayerBox" class="hidden relative w-full aspect-video bg-black rounded-xl overflow-hidden mb-5 border border-slate-800 shadow-inner flex items-center justify-center">
+          <video id="mainVideo" controls preload="metadata" class="w-full h-full object-contain">
+            Browser Anda tidak mendukung pemutar video HTML5.
+          </video>
+        </div>
+
+        <div id="countdownBox" class="text-center py-6 px-4 bg-slate-900/90 rounded-xl border border-slate-800 my-2">
+          <div id="timerContainer">
+            <div class="inline-flex items-center justify-center w-14 h-14 rounded-full bg-blue-600/10 border border-blue-500/30 text-blue-400 text-2xl font-black mb-3">
+              <span id="timerCount">${CONFIG.timerSeconds}</span>
+            </div>
+            <p class="text-sm font-semibold text-slate-200">Harap Tunggu Pemutar Media Sedang Disiapkan...</p>
+            <p class="text-xs text-slate-400 mt-1">Video akan dapat dibuka setelah timer selesai.</p>
+          </div>
+
+          <div id="unlockedContainer" class="hidden">
+            <a id="unlockBtn" href="#" target="_blank" class="inline-flex items-center gap-2 px-8 py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-base rounded-xl shadow-lg shadow-emerald-600/30 transition transform hover:-translate-y-0.5">
+              <i class="fa-solid fa-circle-play text-xl"></i> PUTAR / BUKA LINK SEKARANG
+            </a>
+            <p class="text-xs text-slate-400 mt-2">Klik tombol di atas untuk menuju link utama.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="w-full mb-6 overflow-hidden flex justify-center">
+        ${CONFIG.ads.bottomBanner}
+      </div>
+    </main>
+
+    <footer class="text-center py-4 border-t border-slate-800/60 text-xs text-slate-500">
+      &copy; ${new Date().getFullYear()} ${CONFIG.siteName}. All rights reserved.
+    </footer>
+  </div>
+
+  <!-- JAVASCRIPT ENGINE -->
   <script>
+    // AUTO ROUTING CONTROLLER (CLIENT-SIDE)
+    const currentPath = window.location.pathname;
+    const currentSearch = window.location.search;
+
+    if (currentPath.includes('/v/') || window.location.href.includes('/v/')) {
+      // 1. SWITCH TO SAFELINK VIEW
+      document.getElementById('dashboardView').classList.add('hidden');
+      document.getElementById('safelinkView').classList.remove('hidden');
+
+      // Decode Target URL from ?u= query parameter
+      let targetUrl = '';
+      const urlParams = new URLSearchParams(currentSearch);
+      const uParam = urlParams.get('u');
+      if (uParam) {
+        try {
+          targetUrl = decodeURIComponent(atob(uParam));
+        } catch(e) {}
+      }
+
+      if (targetUrl) {
+        document.getElementById('unlockBtn').href = targetUrl;
+        const videoEl = document.getElementById('mainVideo');
+        if (targetUrl.match(/\\.(mp4|webm|m3u8|ogg)$/i) || targetUrl.includes('cdn.')) {
+          videoEl.src = targetUrl;
+          document.getElementById('videoPlayerBox').classList.remove('hidden');
+        }
+      }
+
+      // Start Countdown Timer
+      let timeLeft = ${CONFIG.timerSeconds};
+      const timerCountEl = document.getElementById('timerCount');
+      const timerContainer = document.getElementById('timerContainer');
+      const unlockedContainer = document.getElementById('unlockedContainer');
+
+      const interval = setInterval(function() {
+        timeLeft--;
+        if (timerCountEl) timerCountEl.innerText = timeLeft;
+        if (timeLeft <= 0) {
+          clearInterval(interval);
+          timerContainer.classList.add('hidden');
+          unlockedContainer.classList.remove('hidden');
+        }
+      }, 1000);
+
+    } else {
+      // 2. DASHBOARD GENERATOR MODE
+      document.getElementById('dashboardView').classList.remove('hidden');
+      document.getElementById('safelinkView').classList.add('hidden');
+    }
+
     function generateIdCode(len = 7) {
       const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
       let str = '';
@@ -201,121 +296,8 @@ function renderDashboard(config, host) {
 </html>`;
 }
 
-// Visitor Safelink HTML
-function renderSafelink(link, config, isVideo) {
-  return `<!DOCTYPE html>
-<html lang="id">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Watch Video / Unlock Link</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <style>
-    body { background-color: #0b0f19; color: #f1f5f9; font-family: system-ui, -apple-system, sans-serif; }
-    .video-card { background-color: #151d2a; border: 1px solid #232f45; }
-  </style>
-  ${config.ads.popunderScript || ''}
-</head>
-<body class="min-h-screen flex flex-col justify-between p-3 md:p-6">
-  <header class="max-w-3xl mx-auto w-full text-center py-3 border-b border-slate-800 mb-4">
-    <h1 class="text-lg font-extrabold text-blue-400 tracking-wide flex items-center justify-center gap-2">
-      <i class="fa-solid fa-play-circle text-blue-500"></i> ${config.siteName || 'MEDIA PLAYER PORTAL'}
-    </h1>
-  </header>
-
-  <main class="max-w-3xl mx-auto w-full flex-1 flex flex-col items-center">
-    <div class="w-full mb-5 overflow-hidden flex justify-center">
-      ${config.ads.topBanner || ''}
-    </div>
-
-    <div class="video-card w-full rounded-2xl p-4 md:p-6 shadow-2xl mb-6">
-      ${isVideo ? `
-        <div class="relative w-full aspect-video bg-black rounded-xl overflow-hidden mb-5 border border-slate-800 shadow-inner flex items-center justify-center">
-          <video id="mainVideo" controls preload="metadata" class="w-full h-full object-contain">
-            <source src="${link.originalUrl}" type="video/mp4">
-            Browser Anda tidak mendukung pemutar video HTML5.
-          </video>
-        </div>
-      ` : ''}
-
-      <div id="countdownBox" class="text-center py-6 px-4 bg-slate-900/90 rounded-xl border border-slate-800 my-2">
-        <div id="timerContainer">
-          <div class="inline-flex items-center justify-center w-14 h-14 rounded-full bg-blue-600/10 border border-blue-500/30 text-blue-400 text-2xl font-black mb-3">
-            <span id="timerCount">${config.timerSeconds || 5}</span>
-          </div>
-          <p class="text-sm font-semibold text-slate-200">Harap Tunggu Pemutar Media Sedang Disiapkan...</p>
-          <p class="text-xs text-slate-400 mt-1">Video akan dapat dibuka setelah timer selesai.</p>
-        </div>
-
-        <div id="unlockedContainer" class="hidden">
-          <a href="${link.originalUrl}" target="_blank" class="inline-flex items-center gap-2 px-8 py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-base rounded-xl shadow-lg shadow-emerald-600/30 transition transform hover:-translate-y-0.5">
-            <i class="fa-solid fa-circle-play text-xl"></i> PUTAR / BUKA LINK SEKARANG
-          </a>
-          <p class="text-xs text-slate-400 mt-2">Klik tombol di atas untuk menuju link utama.</p>
-        </div>
-      </div>
-    </div>
-
-    <div class="w-full mb-6 overflow-hidden flex justify-center">
-      ${config.ads.bottomBanner || ''}
-    </div>
-  </main>
-
-  <footer class="max-w-3xl mx-auto w-full text-center py-4 border-t border-slate-800/60 text-xs text-slate-500">
-    &copy; ${new Date().getFullYear()} ${config.siteName}. All rights reserved.
-  </footer>
-
-  <script>
-    let timeLeft = parseInt("${config.timerSeconds || 5}", 10) || 5;
-    const timerCountEl = document.getElementById('timerCount');
-    const timerContainer = document.getElementById('timerContainer');
-    const unlockedContainer = document.getElementById('unlockedContainer');
-
-    const countdownInterval = setInterval(function() {
-      timeLeft--;
-      if (timerCountEl) timerCountEl.innerText = timeLeft;
-      if (timeLeft <= 0) {
-        clearInterval(countdownInterval);
-        timerContainer.classList.add('hidden');
-        unlockedContainer.classList.remove('hidden');
-      }
-    }, 1000);
-  </script>
-</body>
-</html>`;
-}
-
-// Universal Serverless Request Handler
+// Serverless entrypoint
 module.exports = (req, res) => {
-  const pathQuery = (req.query && req.query._path) ? ('/' + req.query._path) : '';
-  const reqUrl = pathQuery || req.headers['x-matched-path'] || req.headers['x-forwarded-uri'] || req.url || '';
-
-  // 1. SAFELINK VISITOR ROUTE (/v/...)
-  if (reqUrl.includes('/v/') || (req.query && req.query._path && req.query._path.startsWith('v/'))) {
-    let code = '';
-    if (req.query && req.query._path && req.query._path.startsWith('v/')) {
-      code = req.query._path.replace('v/', '').split('?')[0];
-    } else {
-      const fullPath = reqUrl.includes('/v/') ? reqUrl : req.url;
-      const pathPart = fullPath.split('?')[0];
-      code = pathPart.substring(pathPart.indexOf('/v/') + 3);
-    }
-
-    let targetUrl = '';
-    if (req.query && req.query.u) {
-      try {
-        targetUrl = decodeURIComponent(Buffer.from(req.query.u, 'base64').toString('utf8'));
-      } catch(e) {}
-    }
-
-    const linkObj = { id: code, originalUrl: targetUrl || 'https://www.google.com' };
-    const isVideo = (linkObj.originalUrl || '').match(/\.(mp4|webm|m3u8|ogg)$/i) || (linkObj.originalUrl || '').includes('cdn.');
-
-    return res.send(renderSafelink(linkObj, memConfig, isVideo));
-  }
-
-  // 2. DEFAULT DASHBOARD
-  const host = req.headers.host || 'video.cdnvideyyyyx.cloud';
-  return res.send(renderDashboard(memConfig, host));
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  return res.send(renderFullHtml());
 };
