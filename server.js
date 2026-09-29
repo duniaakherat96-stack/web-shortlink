@@ -19,15 +19,12 @@ let memConfig = {
   timerSeconds: 5,
   domains: [
     "video.cdnvideyyyyx.cloud",
-    "cdn2.slicedrve.in",
-    "shorturl.lt",
-    "videy.at",
-    "videy.my",
-    "vdey.in",
-    "aceimg.in",
-    "slicedrve.in",
-    "shortn.icu",
-    "funhun.site"
+    "cdn.cdnvideyyyyx.cloud",
+    "cdn2.cdnvideyyyyx.cloud",
+    "v.cdnvideyyyyx.cloud",
+    "play.cdnvideyyyyx.cloud",
+    "short.cdnvideyyyyx.cloud",
+    "sv.cdnvideyyyyx.cloud"
   ],
   ads: {
     topBanner: "<div style='padding:15px; background:#1e293b; color:#94a3b8; border-radius:8px; font-size:13px; text-align:center;'>[ SLOT IKLAN BANNER ATAS (728x90) - Tempel Kode Adsterra/Monetag Anda Di sini ]</div>",
