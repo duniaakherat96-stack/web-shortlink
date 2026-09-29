@@ -3,8 +3,6 @@ const cors = require('cors');
 
 const app = express();
 
-let memLinks = [];
-let memClicks = [];
 let memConfig = {
   siteName: "VIDOY SHORTLINK PRO",
   timerSeconds: 5,
@@ -32,17 +30,6 @@ function generateId(length = 7) {
   }
   return result;
 }
-
-app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-
-app.use((req, res, next) => {
-  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-  res.setHeader('Pragma', 'no-cache');
-  res.setHeader('Expires', '0');
-  next();
-});
 
 // Dashboard HTML
 function renderDashboard(config, host) {
@@ -301,13 +288,19 @@ function renderSafelink(link, config, isVideo) {
 
 // Universal Serverless Request Handler
 module.exports = (req, res) => {
-  const reqUrl = req.headers['x-matched-path'] || req.headers['x-forwarded-uri'] || req.url || '';
+  const pathQuery = (req.query && req.query._path) ? ('/' + req.query._path) : '';
+  const reqUrl = pathQuery || req.headers['x-matched-path'] || req.headers['x-forwarded-uri'] || req.url || '';
 
   // 1. SAFELINK VISITOR ROUTE (/v/...)
-  if (reqUrl.includes('/v/') || req.url.includes('/v/')) {
-    const fullPath = reqUrl.includes('/v/') ? reqUrl : req.url;
-    const pathPart = fullPath.split('?')[0];
-    const code = pathPart.substring(pathPart.indexOf('/v/') + 3);
+  if (reqUrl.includes('/v/') || (req.query && req.query._path && req.query._path.startsWith('v/'))) {
+    let code = '';
+    if (req.query && req.query._path && req.query._path.startsWith('v/')) {
+      code = req.query._path.replace('v/', '').split('?')[0];
+    } else {
+      const fullPath = reqUrl.includes('/v/') ? reqUrl : req.url;
+      const pathPart = fullPath.split('?')[0];
+      code = pathPart.substring(pathPart.indexOf('/v/') + 3);
+    }
 
     let targetUrl = '';
     if (req.query && req.query.u) {
