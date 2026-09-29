@@ -173,13 +173,14 @@ function renderCreateHtml(config, host) {
 
       <div class="card-box rounded-2xl p-6 shadow-2xl">
         <div class="flex border-b border-slate-800 mb-6">
-          <button id="tabSingle" onclick="switchTab('single')" class="flex-1 py-3 text-center font-medium text-sm transition flex items-center justify-center gap-2 tab-active rounded-t-xl">
+          <button type="button" id="tabSingle" onclick="switchTab('single')" class="flex-1 py-3 text-center font-medium text-sm transition flex items-center justify-center gap-2 tab-active rounded-t-xl">
             <i class="fa-solid fa-link"></i> Single URL
           </button>
-          <button id="tabBulk" onclick="switchTab('bulk')" class="flex-1 py-3 text-center font-medium text-sm transition flex items-center justify-center gap-2 tab-inactive rounded-t-xl">
+          <button type="button" id="tabBulk" onclick="switchTab('bulk')" class="flex-1 py-3 text-center font-medium text-sm transition flex items-center justify-center gap-2 tab-inactive rounded-t-xl">
             <i class="fa-solid fa-layer-group"></i> Bulk URL
           </button>
         </div>
+
 
         <form id="createLinkForm" onsubmit="handleCreateLink(event)">
           <div class="mb-5">
@@ -320,12 +321,17 @@ function renderCreateHtml(config, host) {
         }).catch(() => {});
       } catch(e) {}
 
+      try {
+        localStorage.setItem('my_generated_links', JSON.stringify(generatedLinks));
+      } catch(e) {}
+
       showResults(generatedLinks);
       btn.disabled = false;
       btn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i> Create Links';
     }
 
     function showResults(links) {
+      if (!links || links.length === 0) return;
       const card = document.getElementById('resultCard');
       const list = document.getElementById('resultList');
       list.innerHTML = '';
@@ -357,6 +363,14 @@ function renderCreateHtml(config, host) {
       navigator.clipboard.writeText(urls);
       alert(inputs.length + ' link disalin ke clipboard!');
     }
+
+    // Auto restore latest generated links on load
+    try {
+      const saved = localStorage.getItem('my_generated_links');
+      if (saved) {
+        showResults(JSON.parse(saved));
+      }
+    } catch(e) {}
   </script>
 </body>
 </html>`;
