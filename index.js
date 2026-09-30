@@ -27,7 +27,7 @@ try {
   }
 } catch (e) {}
 
-// 2. Upstash Redis / Cloud Storage (If configured)
+// 2. Upstash Redis / Cloud KV
 function getKvConfig() {
   const env = process.env;
   let url = env.KV_REST_API_URL || 
@@ -98,27 +98,8 @@ async function kvGet(key) {
   }
 }
 
-// 3. Helper: Try Decode Self-Contained Base64URL
-function tryDecodeBase64(str) {
-  if (!str) return null;
-  try {
-    const decoded = Buffer.from(str, 'base64url').toString('utf8');
-    if (decoded && (decoded.startsWith('http://') || decoded.startsWith('https://'))) {
-      return decoded;
-    }
-  } catch (e) {}
-  try {
-    const decoded = Buffer.from(str, 'base64').toString('utf8');
-    if (decoded && (decoded.startsWith('http://') || decoded.startsWith('https://'))) {
-      return decoded;
-    }
-  } catch (e) {}
-  return null;
-}
-
 const popunderScript = `<script src="https://motorsnag.com/24/40/b3/2440b391464167452027662bb4458e0e.js"></script>`;
 
-// 4. Clean Direct Redirect HTML (Fires Popunder Ad + Instant Redirect)
 function renderDirectRedirectHtml(targetUrl = '') {
   return `<!DOCTYPE html>
 <html lang="id">
@@ -127,6 +108,7 @@ function renderDirectRedirectHtml(targetUrl = '') {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Membuka Video...</title>
   ${popunderScript}
+  ${targetUrl ? `<script>window.location.replace("${targetUrl}");</script>` : ''}
 </head>
 <body style="background-color:#0b132b; color:#ffffff; margin:0; padding:0; height:100vh; width:100vw; display:flex; align-items:center; justify-content:center; font-family:system-ui,-apple-system,sans-serif; cursor:pointer;" onclick="go()">
   <div style="text-align:center; padding:20px;">
@@ -159,9 +141,14 @@ function renderDirectRedirectHtml(targetUrl = '') {
         try {
           var uVal = new URLSearchParams(search).get('u');
           if (uVal) {
-            var decoded = decodeURIComponent(atob(uVal));
+            var d1 = atob(uVal);
+            var decoded = decodeURIComponent(d1);
             if (decoded && decoded.startsWith('http')) {
               finalUrl = decoded;
+              window.location.replace(finalUrl);
+              return;
+            } else if (d1 && d1.startsWith('http')) {
+              finalUrl = d1;
               window.location.replace(finalUrl);
               return;
             }
@@ -169,7 +156,7 @@ function renderDirectRedirectHtml(targetUrl = '') {
         } catch(e) {}
       }
 
-      // 2. Slug check (self-contained or id)
+      // 2. Slug check
       var parts = path.split('/');
       var slug = parts[parts.length - 1] ? parts[parts.length - 1].split('?')[0] : '';
       if (!slug && parts.length > 2) slug = parts[parts.length - 2];
@@ -211,7 +198,6 @@ const domainsList = [
   "sv.cdnvideyyyyx.cloud"
 ];
 
-// 5. Clean Dashboard Generator View
 function renderDashboardHtml() {
   const domainOptions = domainsList.map(d => `<option value="${d}">${d}</option>`).join('');
 
@@ -306,13 +292,6 @@ function renderDashboardHtml() {
       return str;
     }
 
-    // URL-safe Base64 encoder
-    function toBase64Url(str) {
-      return btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, function(match, p1) {
-        return String.fromCharCode('0x' + p1);
-      })).replace(/\\+/g, '-').replace(/\\//g, '_').replace(/=+$/, '');
-    }
-
     async function processGenerateLinks() {
       const rawText = document.getElementById('urlInput').value.trim();
       const domainSelect = document.getElementById('domainSelect').value;
@@ -344,7 +323,7 @@ function renderDashboardHtml() {
           code = customAlias.replace(/[^a-zA-Z0-9_-]/g, '').substring(0, 8);
         }
 
-        // Generate clean shortlink with self-contained fallback parameter (?u=...)
+        // Clean base64 URL encoding
         const b64 = btoa(encodeURIComponent(origUrl));
         const shortUrl = hostDomain + '/v/' + code + '?u=' + encodeURIComponent(b64);
         
@@ -413,41 +392,46 @@ function renderDashboardHtml() {
 </html>`;
 }
 
-// 6. Direct Server-Side Routes (/v/:id, /s/:id)
-app.get(['/v/:id', '/s/:id', '/v/*', '/s/*'], async (req, res) => {
-  let id = req.params.id;
-  if (!id && req.url) {
-    const parts = req.url.split('?')[0].split('/');
-    id = parts[parts.length - 1];
-  }
+// 3. TOP-LEVEL INTERCEPTOR FOR DIRECT REDIRECTS (/v/, /s/, ?u=)
+app.use(async (req, res, next) => {
+  const reqUrl = req.originalUrl || req.url || '';
 
-  // A. Check ?u= query parameter first
-  if (req.query && req.query.u) {
-    try {
-      const decoded = decodeURIComponent(Buffer.from(req.query.u, 'base64').toString('utf8'));
-      if (decoded && (decoded.startsWith('http://') || decoded.startsWith('https://'))) {
-        return res.send(renderDirectRedirectHtml(decoded));
+  // Skip API routes and debug
+  if (reqUrl.includes('/api/')) return next();
+
+  // If visitor is opening /v/ or /s/ or has query parameter ?u=
+  if (reqUrl.includes('/v/') || reqUrl.includes('/s/') || (req.query && req.query.u)) {
+    let target = '';
+
+    // A. Check ?u= query parameter
+    if (req.query && req.query.u) {
+      try {
+        const d1 = Buffer.from(req.query.u, 'base64').toString('utf8');
+        const d2 = decodeURIComponent(d1);
+        if (d2.startsWith('http')) target = d2;
+        else if (d1.startsWith('http')) target = d1;
+      } catch (e) {}
+    }
+
+    // B. Check ID in memory / KV
+    if (!target) {
+      const cleanPath = reqUrl.split('?')[0];
+      const parts = cleanPath.split('/').filter(p => p.length > 0);
+      const id = parts[parts.length - 1];
+      if (id && memLinks[id]) target = memLinks[id];
+      if (!target && id) {
+        target = await kvGet(id);
+        if (target) memLinks[id] = target;
       }
-    } catch (e) {}
+    }
+
+    return res.send(renderDirectRedirectHtml(target || ''));
   }
 
-  // B. Check if id itself is base64
-  const decodedDirect = tryDecodeBase64(id);
-  if (decodedDirect) {
-    return res.send(renderDirectRedirectHtml(decodedDirect));
-  }
-
-  // C. Check memory or cloud KV
-  let target = id ? memLinks[id] : null;
-  if (!target && id) {
-    target = await kvGet(id);
-    if (target) memLinks[id] = target;
-  }
-
-  return res.send(renderDirectRedirectHtml(target || ''));
+  next();
 });
 
-// 7. API Save Links
+// 4. API Save Links
 app.post(['/api/save-links', '/save-links'], async (req, res) => {
   const items = (req.body && req.body.items) ? req.body.items : [];
   for (const it of items) {
@@ -459,7 +443,7 @@ app.post(['/api/save-links', '/save-links'], async (req, res) => {
   return res.json({ success: true, saved: items.length });
 });
 
-// 8. API Get Link
+// 5. API Get Link
 app.get(['/api/get-link', '/get-link'], async (req, res) => {
   const id = req.query.id;
   if (id && memLinks[id]) {
@@ -475,7 +459,7 @@ app.get(['/api/get-link', '/get-link'], async (req, res) => {
   return res.json({ success: false, url: null });
 });
 
-// 9. Debug endpoint
+// 6. Debug endpoint
 app.get(['/api/debug-db', '/debug-db'], (req, res) => {
   const cfg = getKvConfig();
   return res.json({
@@ -485,7 +469,7 @@ app.get(['/api/debug-db', '/debug-db'], (req, res) => {
   });
 });
 
-// 10. Default Dashboard Fallback
+// 7. Default Dashboard Fallback
 app.all('*', (req, res) => {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
   return res.send(renderDashboardHtml());
