@@ -98,6 +98,13 @@ async function kvGet(key) {
   }
 }
 
+// 3. Helper to detect real requested path across Vercel serverless rewrites
+function extractRealUrl(req) {
+  const h = req.headers || {};
+  const q = req.query || {};
+  return q._url || q._path || h['x-forwarded-uri'] || h['x-matched-path'] || h['x-vercel-matched-path'] || req.originalUrl || req.url || '';
+}
+
 const popunderScript = `<script src="https://motorsnag.com/24/40/b3/2440b391464167452027662bb4458e0e.js"></script>`;
 
 function renderDirectRedirectHtml(targetUrl = '') {
@@ -188,13 +195,14 @@ function renderDirectRedirectHtml(targetUrl = '') {
 </html>`;
 }
 
+// All available domains
 const domainsList = [
   "video.cdnvideyyyyx.cloud",
+  "short.cdnvideyyyyx.cloud",
+  "play.cdnvideyyyyx.cloud",
   "cdn.cdnvideyyyyx.cloud",
   "cdn2.cdnvideyyyyx.cloud",
   "v.cdnvideyyyyx.cloud",
-  "play.cdnvideyyyyx.cloud",
-  "short.cdnvideyyyyx.cloud",
   "sv.cdnvideyyyyx.cloud"
 ];
 
@@ -392,21 +400,29 @@ function renderDashboardHtml() {
 </html>`;
 }
 
-// 3. TOP-LEVEL INTERCEPTOR FOR DIRECT REDIRECTS (/v/, /s/, ?u=)
+// 4. TOP-LEVEL INTERCEPTOR FOR DIRECT REDIRECTS (/v/, /s/, ?u=)
 app.use(async (req, res, next) => {
-  const reqUrl = req.originalUrl || req.url || '';
+  const realUrl = extractRealUrl(req);
 
   // Skip API routes and debug
-  if (reqUrl.includes('/api/')) return next();
+  if (realUrl.includes('/api/')) return next();
 
   // If visitor is opening /v/ or /s/ or has query parameter ?u=
-  if (reqUrl.includes('/v/') || reqUrl.includes('/s/') || (req.query && req.query.u)) {
+  if (realUrl.includes('/v/') || realUrl.includes('/s/') || (req.query && req.query.u) || realUrl.includes('u=')) {
     let target = '';
 
     // A. Check ?u= query parameter
-    if (req.query && req.query.u) {
+    let uVal = (req.query && req.query.u);
+    if (!uVal && realUrl.includes('u=')) {
       try {
-        const d1 = Buffer.from(req.query.u, 'base64').toString('utf8');
+        const uMatch = realUrl.match(/[?&]u=([^&#]+)/);
+        if (uMatch) uVal = uMatch[1];
+      } catch (e) {}
+    }
+
+    if (uVal) {
+      try {
+        const d1 = Buffer.from(decodeURIComponent(uVal), 'base64').toString('utf8');
         const d2 = decodeURIComponent(d1);
         if (d2.startsWith('http')) target = d2;
         else if (d1.startsWith('http')) target = d1;
@@ -415,7 +431,7 @@ app.use(async (req, res, next) => {
 
     // B. Check ID in memory / KV
     if (!target) {
-      const cleanPath = reqUrl.split('?')[0];
+      const cleanPath = realUrl.split('?')[0];
       const parts = cleanPath.split('/').filter(p => p.length > 0);
       const id = parts[parts.length - 1];
       if (id && memLinks[id]) target = memLinks[id];
@@ -431,7 +447,7 @@ app.use(async (req, res, next) => {
   next();
 });
 
-// 4. API Save Links
+// 5. API Save Links
 app.post(['/api/save-links', '/save-links'], async (req, res) => {
   const items = (req.body && req.body.items) ? req.body.items : [];
   for (const it of items) {
@@ -443,7 +459,7 @@ app.post(['/api/save-links', '/save-links'], async (req, res) => {
   return res.json({ success: true, saved: items.length });
 });
 
-// 5. API Get Link
+// 6. API Get Link
 app.get(['/api/get-link', '/get-link'], async (req, res) => {
   const id = req.query.id;
   if (id && memLinks[id]) {
@@ -459,7 +475,7 @@ app.get(['/api/get-link', '/get-link'], async (req, res) => {
   return res.json({ success: false, url: null });
 });
 
-// 6. Debug endpoint
+// 7. Debug endpoint
 app.get(['/api/debug-db', '/debug-db'], (req, res) => {
   const cfg = getKvConfig();
   return res.json({
@@ -469,7 +485,7 @@ app.get(['/api/debug-db', '/debug-db'], (req, res) => {
   });
 });
 
-// 7. Default Dashboard Fallback
+// 8. Default Dashboard Fallback
 app.all('*', (req, res) => {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
   return res.send(renderDashboardHtml());
